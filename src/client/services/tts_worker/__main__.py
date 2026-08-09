@@ -69,6 +69,9 @@ class TTSWorkerService(BaseService):
         logging.info("[TTS Worker] Usługa zatrzymana.")
 
     async def handle_command(self, command_type: str, payload: dict, task_id: str | None):
+        if command_type not in ("synthesize", "tts"):
+            return
+
         if self.state != ServiceState.READY:
             logging.warning(f"[TTS Worker] Odrzucono zadanie ({command_type}) - worker jest {self.state.value}")
             await self.send_task_event(task_id, {
@@ -77,8 +80,7 @@ class TTSWorkerService(BaseService):
             })
             return
 
-        if command_type in ("synthesize", "tts"):
-            await self._process_synthesize(payload, task_id)
+        await self._process_synthesize(payload, task_id)
 
     async def _process_synthesize(self, payload: dict, task_id: str | None):
         text = payload.get("text", "")

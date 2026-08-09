@@ -8,23 +8,35 @@ from typing import Any
 
 
 # =============================================================================
-# 1. INTENCJE WEJŚCIOWE UŻYTKOWNIKA (USER INPUT INTENTS)
+# 1. INTENCJE WEJŚCIOWE UŻYTKOWNIKA I PRZEPŁYW (USER INPUT & FLOW)
 # =============================================================================
 
 @dataclass(frozen=True)
-class TextMessage:
-    """Paczka danych dla wiadomości tekstowej od użytkownika."""
+class RawTextReceived:
+    """Paczka surowych danych dla wiadomości tekstowej od użytkownika."""
     text: str
-    sender: str = "web_ui"
+    sender: str
 
 
 @dataclass(frozen=True)
-class AudioMessage:
-    """Paczka danych dla nagrania audio od użytkownika."""
+class RawAudioReceived:
+    """Paczka surowych danych audio od użytkownika (przed transkrypcją STT)."""
     audio_bytes: bytes
-    sender: str = "web_ui"
+    sender: str
 
 
+@dataclass(frozen=True)
+class UserSpoke:
+    """Gotowy, znormalizowany tekst wypowiedziany przez użytkownika (po przejściu przez STT lub z czystego tekstu)."""
+    text: str
+    sender: str
+
+
+@dataclass(frozen=True)
+class AgentSpoke:
+    """Paczka zdarzenia: Agent wygenerował tekst (myśl lub odpowiedź docelową) przeznaczony dla użytkownika."""
+    text: str
+    sender: str
 
 
 # =============================================================================
@@ -124,3 +136,14 @@ class SystemLogMessage:
     level: str
     message: str
     source: str = "controller"
+
+
+@dataclass(frozen=True)
+class AgentActionMessage:
+    """Paczka zdarzenia oznaczająca aktywność narzędzia (start lub koniec)."""
+    satellite_id: str
+    action_type: str  # np. 'tool_call' lub 'tool_result'
+    tool_name: str
+    tool_args: dict | None = None
+    tool_result: str | None = None
+

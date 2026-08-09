@@ -2,6 +2,7 @@
 Rejestr podłączonych klientów w pamięci oraz kwerendy po typie usługi.
 """
 import time
+from protocol.schemas import ServiceName
 
 # Główny rejestr aktywnych klientów: {client_id: {id, host, services, last_seen}}
 # Uzupełniany przy rejestracji WebSocket, czyszczony przez heartbeat.
@@ -14,9 +15,13 @@ def get_llm_clients() -> list[dict]:
     for client_id, client in client_registry.items():
         services = client.get("services", {})
         s_keys = services.keys() if isinstance(services, dict) else services
-        if "ollama_worker" in s_keys or "llm" in s_keys or "worker" in s_keys:
+        if (
+            ServiceName.OLLAMA_WORKER.value in s_keys
+            or "llm" in s_keys
+            or "worker" in s_keys
+        ):
             cfg = (
-                services.get("ollama_worker")
+                services.get(ServiceName.OLLAMA_WORKER.value)
                 or services.get("llm")
                 or services.get("worker", {})
                 if isinstance(services, dict)
@@ -40,9 +45,18 @@ def get_audio_clients() -> list[dict]:
     for client_id, client in client_registry.items():
         services = client.get("services", {})
         s_keys = services.keys() if isinstance(services, dict) else services
-        if "audio" in s_keys or "stt" in s_keys or "tts" in s_keys or "worker" in s_keys:
+        if (
+            ServiceName.STT_WORKER.value in s_keys
+            or ServiceName.TTS_WORKER.value in s_keys
+            or "stt" in s_keys
+            or "tts" in s_keys
+            or "audio" in s_keys
+            or "worker" in s_keys
+        ):
             cfg = (
-                services.get("audio")
+                services.get(ServiceName.STT_WORKER.value)
+                or services.get(ServiceName.TTS_WORKER.value)
+                or services.get("audio")
                 or services.get("stt")
                 or services.get("tts")
                 or services.get("worker", {})
@@ -64,10 +78,11 @@ def get_audio_clients() -> list[dict]:
 def get_satellite_clients() -> list[dict]:
     """Zwraca listę zarejestrowanych Klientów z usługą 'satellite'."""
     satellites = []
+    sat_key = ServiceName.SATELLITE.value
     for client_id, client in client_registry.items():
         services = client.get("services", {})
-        if isinstance(services, dict) and "satellite" in services:
-            s_cfg = services["satellite"]
+        if isinstance(services, dict) and sat_key in services:
+            s_cfg = services[sat_key]
             satellites.append({
                 "id": client.get("id", client_id),
                 "room": s_cfg.get("room", client.get("room")),
@@ -76,7 +91,7 @@ def get_satellite_clients() -> list[dict]:
                 "wakeword_local": s_cfg.get("wakeword_local", client.get("wakeword_local", True)),
                 "last_seen": client.get("last_seen", time.time()),
             })
-        elif isinstance(services, list) and "satellite" in services:
+        elif isinstance(services, list) and sat_key in services:
             satellites.append({
                 "id": client.get("id", client_id),
                 "room": client.get("room"),
@@ -95,7 +110,9 @@ def get_client_room(client_id: str | None) -> str | None:
         if client.get("room"):
             return client["room"]
         services = client.get("services", {})
-        if isinstance(services, dict) and "satellite" in services:
-            return services["satellite"].get("room")
+        sat_key = ServiceName.SATELLITE.value
+        if isinstance(services, dict) and sat_key in services:
+            return services[sat_key].get("room")
     return None
+
 

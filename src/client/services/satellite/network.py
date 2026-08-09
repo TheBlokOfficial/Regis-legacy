@@ -27,6 +27,14 @@ class SatelliteAPIClient:
         except Exception as e:
             self.event_bus.log(f"Błąd zgłoszenia audio_complete: {e}")
 
+    async def report_satellite_state(self, state: str):
+        """Zgłasza stan Satelity (np. 'WAITING') do Kontrolera."""
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as c:
+                await c.post(f"{self.proxy_url}/internal/satellite_event", json={"type": "state", "state": state})
+        except Exception as e:
+            self.event_bus.log(f"Błąd zgłoszenia satellite_event: {e}")
+
     async def send_audio_payload(self, wav_bytes: bytes) -> bool:
         """Wysyła nagraną paczkę audio (WAV) do Kontrolera."""
         url = f"{self.proxy_url}/internal/audio"

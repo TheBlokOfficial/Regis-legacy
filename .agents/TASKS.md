@@ -1,5 +1,22 @@
 # Lista Zadań Projektu Regis (TASKS)
 
+## Rejestr Zrealizowanych Zadań (Sesja 2026-08-09 - Strumieniowanie Wywołań Narzędzi w UI i Satelicie)
+
+- [x] **Dedykowana Wiadomość Akcji (`src/controller/messages.py`)**:
+  - Utworzono klasę `AgentActionMessage` opisującą start oraz wynik wywołania narzędzia.
+- [x] **Propagacja Zdarzeń SSE (`src/controller/core/telemetry.py`)**:
+  - Zarejestrowano w magistrali subskrybenta `AgentActionMessage` i udostępniono event SSE `agent_action`.
+- [x] **Emisja Akcji i Ustrukturyzowany Log (`src/controller/orchestrator.py`)**:
+  - Zaktualizowano pętlę Orkiestratora tak, by przesyłała obiekty `tool_call` i `tool_result` oraz publikowała `AgentActionMessage`.
+- [x] **Zabezpieczenie Strumienia w Czacie (`src/controller/web/chat.js`)**:
+  - Dodano flagę `isChatStreaming` i naprawiono parsujące renderowanie kafelków narzędzi na żywo (`renderToolsBlock`).
+- [x] **Reaktywne Aktualizacje dla Satelity (`src/controller/web/events.js`)**:
+  - Dodano odświeżanie sesji po zdarzeniu `agent_action` (tylko przy `!isChatStreaming`), umożliwiając natychmiastowe widzenie narzędzi przy komunikacji głosowej.
+- [x] **Optymalizacja Zapytania o Historię (`store.py`, `interaction.py`)**:
+  - Dodano parametr `create_if_missing=False` zapobiegający bezpotrzebnemu tworzeniu pustych sesji.
+
+---
+
 ## Rejestr Zrealizowanych Zadań (Sesja 2026-08-08 - Unifikacja MessageBus, Katalog Wiadomości i Eliminacja Tight Coupling)
 
 - [x] **Uniwersalna Magistrala Wiadomości (`src/controller/core/message_bus.py`)**:

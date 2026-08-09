@@ -67,7 +67,7 @@ class AudioStreamManager:
         while self.ring_buffer:
             collected_chunks.append(self.ring_buffer.popleft().tobytes())
 
-        while get_state_func() == "STREAMING":
+        while get_state_func() == "BUSY":
             chunk = await self.audio_queue.get()
             is_speech = vad.is_speech(chunk)
             collected_chunks.append(chunk.tobytes())

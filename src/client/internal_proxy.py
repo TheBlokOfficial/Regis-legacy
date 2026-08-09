@@ -39,16 +39,24 @@ async def wake_check():
 
 @app.get("/internal/service_commands")
 @app.get("/internal/satellite_commands")  # Alias dla wstecznej kompatybilności
-async def service_commands_stream():
+async def service_commands_stream(request: Request):
     """
-    SSE endpoint – usługi podłączone lokalnie (np. Satelita) subskrybują ten strumień,
-    aby odbierać przychodzące komendy od Kontrolera przesyłane przez magistralę komend.
+    SSE endpoint – usługi podłączone lokalnie (np. Satelita, Ollama Worker) subskrybują ten strumień.
+    Każde połączenie otrzymuje własną, dedykowaną kolejkę (Pub/Sub).
+    Wiadomości są rozgłaszane do WSZYSTKICH podłączonych usług naraz, eliminując Race Condition.
     """
+    q = service_bus.subscribe()
+
     async def generate():
-        while True:
-            cmd = await service_bus.get_command()
-            if cmd is not None:
-                yield f"data: {json.dumps(cmd)}\n\n"
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                cmd = await service_bus.get_command(q)
+                if cmd is not None:
+                    yield f"data: {json.dumps(cmd)}\n\n"
+        finally:
+            service_bus.unsubscribe(q)
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
@@ -60,6 +68,17 @@ async def audio_complete():
     Proxy informuje Kontroler przez WebSocket.
     """
     controller_api.send_audio_complete()
+    return {"ok": True}
+
+
+@app.post("/internal/satellite_event")
+async def satellite_event(request: Request):
+    """
+    Satelita zgłasza tu swoje zdarzenia stanowe (np. WAITING).
+    Proxy przesyła je przez WebSocket do Kontrolera.
+    """
+    data = await request.json()
+    controller_api.bus_publish(data)
     return {"ok": True}
 
 

@@ -41,6 +41,9 @@ class ClientConnectionManager:
     def __init__(self):
         self.active_connections: dict[str, WebSocket] = {}
 
+    def is_connected(self, client_id: str) -> bool:
+        return client_id in self.active_connections
+
     async def connect(self, client_id: str, websocket: WebSocket) -> None:
         await websocket.accept()
         self.active_connections[client_id] = websocket
@@ -220,13 +223,15 @@ async def _handle_ws_register(client_id: str, data: dict, websocket: WebSocket):
             ))
 
         await websocket.send_json({
-
             "type": "config",
             "data": {
                 "name": name,
                 "services": services_dict,
             }
         })
+
+        if "satellite" in services_dict:
+            await message_bus.publish(ResumeSatelliteMessage(client_id=req.id))
     except Exception as e:
         logging.error(f"Błąd rejestracji przez WebSocket dla {client_id}: {e}")
 
@@ -266,8 +271,11 @@ async def _handle_ws_task_event(client_id: str, data: dict, websocket: WebSocket
         task_id = data.get("task_id")
         event_data = data.get("event", {})
         if task_id:
-            from controller.providers.llm.client_app import route_task_event
-            route_task_event(task_id, event_data)
+            from controller.providers.llm.client_app import route_task_event as route_llm_task_event
+            route_llm_task_event(task_id, event_data)
+
+            from controller.providers.audio.service import route_task_event as route_audio_task_event
+            route_audio_task_event(task_id, event_data)
         else:
             logging.warning(f"Odebrano task_event bez task_id od klienta {client_id}")
     except Exception as e:

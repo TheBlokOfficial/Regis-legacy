@@ -18,7 +18,7 @@ import {
     updateSatelliteVAD, appendLog,
 } from './renderer.js';
 import { fmtTime, truncate } from './utils.js';
-import { getActiveSatelliteId, appendTurnToChat } from './chat.js';
+import { getActiveSatelliteId, loadSessionHistory, loadSatellitesForSelect, isChatStreaming } from './chat.js';
 
 export function handleEvent(event) {
     const now = fmtTime(event.timestamp || null);
@@ -61,21 +61,26 @@ export function handleEvent(event) {
             break;
         }
 
-        case "conversation_turn": {
-            // Szczegóły tury trafiają do czatu konwersacyjnego, nie do dziennika
+        case "user_spoke": {
+            // Gdy tylko STT zdekoduje mowę użytkownika, natychmiast odświeżamy historię aktywnej sesji
             const activeSat = getActiveSatelliteId();
             const eventSat = event.satellite_id || "web_ui";
-            if (activeSat === eventSat) {
-                appendTurnToChat({
-                    user: event.user_text,
-                    assistant: event.assistant_text,
-                    timestamp: now,
-                    tools: event.tools || [],
-                    tool_count: event.tool_count || 0,
-                    model: event.model,
-                    elapsed_ms: event.elapsed_ms,
-                    profiler: event.profiler
-                });
+            loadSatellitesForSelect();
+            if (activeSat === eventSat && !isChatStreaming) {
+                loadSessionHistory(activeSat);
+            }
+            break;
+        }
+
+        case "agent_action":
+        case "agent_spoke":
+        case "conversation_turn": {
+            // Po odebraniu informacji o akcji/odpowiedzi agenta, odświeżamy historię aktywnej sesji
+            const activeSat = getActiveSatelliteId();
+            const eventSat = event.satellite_id || "web_ui";
+            loadSatellitesForSelect();
+            if (activeSat === eventSat && !isChatStreaming) {
+                loadSessionHistory(activeSat);
             }
             break;
         }

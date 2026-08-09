@@ -1,38 +1,73 @@
 """
 Zarządzanie historią aktywnych sesji konwersacji w pamięci Kontrolera.
 
-Każda sesja jest identyfikowana przez satellite_id (lub "default" dla Web UI).
-Sesje są automatycznie wygaszane przez heartbeat po 60s bezczynności.
+Architektura oparta na OOP (Object-Oriented Programming).
+Stan utrzymywany jest w izolowanych obiektach `ConversationSession`.
+Identyfikacja fizyczna (satellite_id) mapowana jest na wirtualne session_id.
 """
 import time
+import uuid
+import datetime
 
-# Słownik aktywnych sesji: {satellite_id: [{"user": ..., "assistant": ..., ...}]}
-conversation_sessions: dict[str, list[dict]] = {}
+class ConversationSession:
+    """Reprezentuje pojedynczą sesję konwersacji."""
+    def __init__(self, session_id: str):
+        self.session_id = session_id
+        self.history: list[dict] = []
+        self.last_interaction: float = time.time()
+        self.history_limit: int = 12
 
-# Czas ostatniej interakcji dla każdej sesji — używany przez heartbeat do wygaszania
-session_last_interaction_times: dict[str, float] = {}
+    def append_message(self, role: str, content: str, **kwargs) -> None:
+        """Dodaje wiadomość do historii i weryfikuje limity."""
+        now = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        self.history.append({
+            "role": role,
+            "content": content,
+            "timestamp": now,
+            **kwargs
+        })
+        self.last_interaction = time.time()
+        
+        if len(self.history) > self.history_limit:
+            del self.history[:-self.history_limit]
+
+    def get_history(self) -> list[dict]:
+        """Zwraca kopię (lub referencję) listy wiadomości."""
+        return self.history
+        
+    def clear(self) -> None:
+        """Czyści całkowicie historię tej sesji."""
+        self.history.clear()
 
 
-def get_session_history(satellite_id: str | None = None) -> list[dict]:
-    """Pobiera historię konwersacji dla określonej Satelity / sesji."""
+# Mapowanie: satellite_id -> session_id
+client_to_session: dict[str, str] = {}
+
+# Słownik aktywnych instancji sesji
+active_sessions: dict[str, ConversationSession] = {}
+
+
+def get_session_for_client(satellite_id: str | None, create_if_missing: bool = True) -> ConversationSession | None:
+    """Pobiera lub (jeśli create_if_missing=True) tworzy obiekt sesji dla danego sprzętu."""
     sid = satellite_id or "default"
-    return conversation_sessions.get(sid, [])
+    
+    # 1. Sprawdź, czy klient ma przypisane session_id
+    if sid not in client_to_session:
+        if not create_if_missing:
+            return None
+        client_to_session[sid] = f"session_{uuid.uuid4().hex[:8]}"
+        
+    session_id = client_to_session[sid]
+    
+    # 2. Sprawdź, czy instancja sesji istnieje
+    if session_id not in active_sessions:
+        if not create_if_missing:
+            return None
+        active_sessions[session_id] = ConversationSession(session_id)
+        
+    return active_sessions[session_id]
 
-
-def append_to_session(satellite_id: str | None, turn: dict) -> None:
-    """Dodaje turę konwersacji do sesji i aktualizuje czas ostatniej interakcji."""
-    sid = satellite_id or "default"
-    if sid not in conversation_sessions:
-        conversation_sessions[sid] = []
-    conversation_sessions[sid].append(turn)
-    session_last_interaction_times[sid] = time.time()
-
-
-def clear_session_history(satellite_id: str | None = None) -> None:
-    """Czyści pamięć konkretnej sesji lub wszystkich sesji (gdy satellite_id jest None)."""
-    if satellite_id:
-        conversation_sessions.pop(satellite_id, None)
-        session_last_interaction_times.pop(satellite_id, None)
-    else:
-        conversation_sessions.clear()
-        session_last_interaction_times.clear()
+def clear_all_sessions() -> None:
+    """Opcjonalna metoda do globalnego restartu pamięci."""
+    active_sessions.clear()
+    client_to_session.clear()

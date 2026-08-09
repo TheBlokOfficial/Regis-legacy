@@ -1,59 +1,41 @@
-# HANDOFF — Stan Projektu Regis po Sesji 2026-08-08 (Unifikacja MessageBus, Katalog Wiadomości i Eliminacja Tight Coupling)
+# HANDOFF — Stan Projektu Regis po Sesji 2026-08-09 (Naprawa Strumieniowania Akcji i Narzędzi w UI oraz Satelicie)
 
 ## Co zostało zrobione w tej sesji
 
-Przeprowadzono pełną restrukturyzację szyny wiadomości, stworzono silnie typowany katalog wiadomości w `src/controller/messages.py` oraz wyeliminowano ciasne powiązania (tight coupling) w całym Kontrolerze na rzecz czystej architektury sterowanej zdarzeniami (Event-Driven Architecture).
+Rozwiązano problem "magazynowania" wywołań narzędzi i akcji agenta w jeden pakiet na koniec tury konwersacji. Wdrożono pełne strumieniowanie na żywo (zarówno dla czatu tekstowego w Web UI, jak i dla interfejsu głosowego Satelity) oraz naprawiono błędy wyświetlania kafelków narzędzi w frontendzie.
 
-### 1. Uniwersalna Magistrala Wiadomości (`core/message_bus.py`)
-- Usunięto przestarzałe, rozczłonkowane pliki `command_bus.py` oraz `event_bus.py`.
-- Stworzono agnostyczny, lekki (~35 linii) moduł [src/controller/core/message_bus.py](file:///d:/Projekty/Regis/src/controller/core/message_bus.py) udostępniający wyłącznie metody `subscribe` oraz `publish`.
+### 1. Rozszerzenie Katalogu Wiadomości (`src/controller/messages.py`)
+- Dodano klasę `AgentActionMessage` (zawierającą `satellite_id`, `action_type`, `tool_name`, `tool_args`, `tool_result`), reprezentującą start i zakończenie wykonania narzędzia.
 
-### 2. Pełny Katalog Silnie Typowanych Wiadomości (`messages.py`)
-- Utworzono i zorganizowano w 4 tematyczne sekcje plik [src/controller/messages.py](file:///d:/Projekty/Regis/src/controller/messages.py):
-  1. **Intencje Wejściowe Użytkownika:** `TextMessage`, `AudioMessage` (ze spójnym polem `sender: str = "web_ui"`).
-  2. **Komendy Sterujące i Akcje:** `PlayAudioMessage`, `PauseSatelliteMessage`, `ResumeSatelliteMessage`, `ClearHistoryMessage`.
-  3. **Zdarzenia Sieciowe i Cykl Życia Klientów:** `ClientRegisteredMessage`, `ClientUnregisteredMessage`, `ClientUpdatedMessage`, `ClientCommandResultMessage`, `SatelliteEventMessage`.
-  4. **Telemetria i Logs:** `ConversationTurnMessage`, `SystemLogMessage`.
+### 2. Transmisja Telemetrii SSE (`src/controller/core/telemetry.py`)
+- Zarejestrowano słuchacza `AgentActionMessage` w `message_bus`, który propaguje wywołania narzędzi jako event SSE typu `agent_action` do podłączonych przeglądarek.
 
-### 3. Usunięcie Tight Coupling i Reaktywne WS
-- Odpięto router [src/controller/endpoints/interaction.py](file:///d:/Projekty/Regis/src/controller/endpoints/interaction.py) od bezpośrednich wywołań menedżera gniazd WebSocket (`client_manager`). Endpointy wypluwają teraz paczki `PlayAudioMessage`, `ResumeSatelliteMessage` oraz `ClearHistoryMessage` na `message_bus`.
-- Zarejestrowano w [src/controller/endpoints/clients.py](file:///d:/Projekty/Regis/src/controller/endpoints/clients.py) słuchacze komend sterujących, które asynchronicznie wysyłają polecenia do Satelit po WebSocket.
-- Odblokowano pętlę asynchroniczną podczas czyszczenia historii w [src/controller/agent/session/manager.py](file:///d:/Projekty/Regis/src/controller/agent/session/manager.py) (`asyncio.to_thread` przy `requests.post`).
+### 3. Emisja Akcji w Orkiestratorze (`src/controller/orchestrator.py`)
+- Zmieniono sposób emitowania zdarzeń narzędzi w lokalnej kolejce strumieniowania z czystych tekstów (np. `> Regis używa: ...`) na ustrukturyzowane obiekty JSON (`tool_call`, `tool_result`).
+- Dodano publikację `AgentActionMessage` przed i po wykonaniu każdego narzędzia przez agenta.
 
-### 4. Uproszczenie Orkiestratora i Dependency Injection dla Agenta
-- Zrefaktoryzowano [src/controller/orchestrator.py](file:///d:/Projekty/Regis/src/controller/orchestrator.py): usunięto sztuczną klasę `TurnContext` i funkcję pomocniczą `_build_context`. `handle_text_message` i `handle_audio_message` przekazują treść i `sender` bezpośrednio do `_execute_turn_stream`.
-- Usunięto sztywny import `app_state` z [src/controller/agent/engine.py](file:///d:/Projekty/Regis/src/controller/agent/engine.py), wstrzykując `tools_registry` bezpośrednio z Orkiestratora.
+### 4. Naprawa Renderowania i Strumieniowania w Czacie Tekstowym (`src/controller/web/chat.js`)
+- Wprowadzono i wyeksportowano flagę `isChatStreaming`, zapobiegającą przerywaniu animacji generowania tekstu przez przychodzące zewnętrzne zdarzenia.
+- Zaktualizowano pętlę odbioru strumienia tak, by interpretowała obiekty `tool_call` i `tool_result` oraz sprawnie łączyła argumenty z wynikiem w jednym kafelku widoku (`renderToolsBlock`). Eliminowało to "puste pola" i błędy formatowania UI.
 
-### 5. Zaplanowanie Bramy Agenta (`AgentGateway`)
-- Uzgodniono wprowadzenie aktywnego podmiotu `AgentGateway` (`agent_gateway.py`), którego zadaniem będzie nasłuchiwanie na `message_bus` wszelkich zapytań skierowanych do Agenta (z HTTP, WS, konsoli), rozpakowanie kontekstu nadawcy oraz zunifikowanie ich w paczkę `InputContext`.
+### 5. Reaktywne Aktualizacje dla Komunikacji Głosowej (`src/controller/web/events.js`)
+- Zaimportowano `isChatStreaming` i dodano obsługę zdarzenia `agent_action`.
+- Przy braku aktywnego strumieniowania tekstowego (`!isChatStreaming`), zdarzenia mowy użytkownika, mowy agenta oraz akcji narzędzi natychmiast odświeżają historię aktywnej sesji (`loadSessionHistory`), sprawiając że wywołania narzędzi przy komendach głosowych pojawiają się dynamicznie w trakcie ich wykonywania.
+
+### 6. Optymalizacja Pobierania Sesji i Historii (`store.py`, `interaction.py`)
+- Wdrożono parametr `create_if_missing=False` w `get_session_for_client`, co zapobiega tworzeniu "pustych" sesji w pamięci podczas samego przeglądania historii lub listy sesji.
 
 ---
 
 ## Aktualny stan kodu
 
-- Kod w pełni sprawny, architektura wyczyszczona i zunifikowana wokół `message_bus`.
-- **Weryfikacja testami:** `python -c "from controller.app import app" ; pytest tests/test_llm_backends.py` (10/10 testów przechodzi, 100% PASSED).
-- Układ katalogów Kontrolera (`src/controller/`):
-  - `core/` (`message_bus.py`, `telemetry.py`, `client_registry.py`, `state.py`, `session/`)
-  - `agent/` (`engine.py`, `prompt/`, `tools/`, `models.py`)
-  - `providers/` (`llm/`, `audio/service.py`)
-  - `endpoints/` (`interaction.py`, `clients.py`, `cloud.py`, `system.py`, `tools.py`)
-  - `messages.py`, `orchestrator.py`, `config/`, `integrations/`, `web/`
-
----
-
-## Otwarte kwestie do przyszłych sesji
-
-1. **Wdrożenie Podmiotu `AgentGateway`** — stworzenie `src/controller/core/agent_gateway.py` nasłuchującego wiadomości dla Agenta i generującego `InputContext` dla Orkiestratora.
-2. **Pamięć długoterminowa** `[ARCH]` — kluczowy brakujący feature odróżniający Regisa od HA AI.
-3. **Scheduler zadań agenta** `[ARCH]` — mechanizm odroczonych szturchnięć agenta.
-4. **Docker deployment** `[DIST]` — przygotowanie obrazów Docker dla serwera Regis.
+- Strumieniowanie akcji narzędzi działa na żywo i jest w pełni zsynchronizowane między backendem a frontendem.
+- Kod wyczyszczony, bez błędów w konsoli UI oraz bez zbędnych wpisów do pamięci przy operacjach tylko do odczytu.
 
 ---
 
 ## Precyzyjne kroki startowe dla następnego agenta
 
 1. Zapoznaj się z `docs/MANIFEST.md` oraz `.agents/AGENTS.md`.
-2. Uruchom test weryfikacyjny: `python -c "from controller.app import app" ; pytest tests/test_llm_backends.py` w głównym katalogu.
-3. Przejrzyj spójny katalog wiadomości w [src/controller/messages.py](file:///d:/Projekty/Regis/src/controller/messages.py) oraz zrefaktoryzowany [src/controller/orchestrator.py](file:///d:/Projekty/Regis/src/controller/orchestrator.py).
-4. Zapoznaj się z zaakceptowanym planem w `implementation_plan.md` dotyczącym wprowadzenia `AgentGateway`.
+2. Przejrzyj katalog wiadomości w [src/controller/messages.py](file:///d:/Projekty/Regis/src/controller/messages.py) i spójrz na emisję zdarzeń w [src/controller/orchestrator.py](file:///d:/Projekty/Regis/src/controller/orchestrator.py).
+3. Sprawdź zachowanie czatu w [src/controller/web/chat.js](file:///d:/Projekty/Regis/src/controller/web/chat.js) oraz [src/controller/web/events.js](file:///d:/Projekty/Regis/src/controller/web/events.js).

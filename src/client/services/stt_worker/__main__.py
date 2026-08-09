@@ -65,6 +65,9 @@ class STTWorkerService(BaseService):
         logging.info("[STT Worker] Usługa zatrzymana.")
 
     async def handle_command(self, command_type: str, payload: dict, task_id: str | None):
+        if command_type not in ("transcribe", "stt"):
+            return
+
         if self.state != ServiceState.READY:
             logging.warning(f"[STT Worker] Odrzucono zadanie ({command_type}) - worker jest {self.state.value}")
             await self.send_task_event(task_id, {
@@ -73,8 +76,7 @@ class STTWorkerService(BaseService):
             })
             return
 
-        if command_type in ("transcribe", "stt"):
-            await self._process_transcribe(payload, task_id)
+        await self._process_transcribe(payload, task_id)
 
     async def _process_transcribe(self, payload: dict, task_id: str | None):
         audio_b64 = payload.get("audio_b64", "")

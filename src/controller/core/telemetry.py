@@ -9,10 +9,13 @@ import datetime
 from collections import deque
 from controller.core.message_bus import message_bus
 from controller.messages import (
+    UserSpoke,
+    AgentSpoke,
     ConversationTurnMessage,
     ClientRegisteredMessage,
     ClientUnregisteredMessage,
     SystemLogMessage,
+    AgentActionMessage,
 )
 
 _history: deque = deque(maxlen=500)
@@ -28,6 +31,22 @@ def _record_event(event_dict: dict) -> None:
             q.put_nowait(event_dict)
         except asyncio.QueueFull:
             pass
+
+
+async def _on_user_spoke(msg: UserSpoke) -> None:
+    _record_event({
+        "type": "user_spoke",
+        "satellite_id": msg.sender,
+        "text": msg.text,
+    })
+
+
+async def _on_agent_spoke(msg: AgentSpoke) -> None:
+    _record_event({
+        "type": "agent_spoke",
+        "satellite_id": msg.sender,
+        "text": msg.text,
+    })
 
 
 async def _on_conversation_turn(msg: ConversationTurnMessage) -> None:
@@ -72,12 +91,25 @@ async def _on_system_log(msg: SystemLogMessage) -> None:
     })
 
 
+async def _on_agent_action(msg: AgentActionMessage) -> None:
+    _record_event({
+        "type": "agent_action",
+        "satellite_id": msg.satellite_id,
+        "action_type": msg.action_type,
+        "tool_name": msg.tool_name,
+        "tool_args": msg.tool_args,
+        "tool_result": msg.tool_result,
+    })
+
+
 # Rejestracja słuchaczy w agnostycznej magistrali MessageBus
+message_bus.subscribe(UserSpoke, _on_user_spoke)
+message_bus.subscribe(AgentSpoke, _on_agent_spoke)
 message_bus.subscribe(ConversationTurnMessage, _on_conversation_turn)
 message_bus.subscribe(ClientRegisteredMessage, _on_client_registered)
 message_bus.subscribe(ClientUnregisteredMessage, _on_client_unregistered)
 message_bus.subscribe(SystemLogMessage, _on_system_log)
-message_bus.subscribe(dict, _record_event)  # wsparcie dla surowych słowników SSE
+message_bus.subscribe(AgentActionMessage, _on_agent_action)
 
 
 async def subscribe_sse() -> tuple[asyncio.Queue, list[dict]]:

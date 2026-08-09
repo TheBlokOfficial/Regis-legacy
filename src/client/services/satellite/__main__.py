@@ -52,17 +52,25 @@ class SatelliteService(BaseService):
         self.audio_manager.set_loop(loop)
         logging.info("Regis Satellite Service (Self-Healing Audio & Streaming VAD)")
 
-        # 1. Sprawdzenie sprzętu
+        # 1. INITIALIZING – oczekiwanie na lokalny sprzęt i modele
         await self.readiness.ensure_ready()
+        
+        # 2. Przejście w READY z domyślną pauzą (PAUSED)
         await self._set_state(ServiceState.READY)
+        self._paused = True
+
+        # 3. Otwarcie nasłuchu komend (aby móc odebrać RESUME)
+        cmd_task = asyncio.create_task(self.listen_for_commands())
+        await asyncio.sleep(0.1)
+
+        # 4. Zgłoszenie do Kontrolera: "Wszystko ustawione lokalnie, jestem READY"
+        await self.network.report_satellite_state("WAITING")
 
         try:
-            # 2. Główny pasywny punkt oczekiwania na komendy SSE
-            await super().start()
+            await cmd_task
         except asyncio.CancelledError:
             pass
         finally:
-            # 3. Sprzątanie przy wyłączaniu
             await self.stop()
 
     async def handle_command(self, command_type: str, payload: dict, task_id: str | None):
@@ -80,16 +88,19 @@ class SatelliteService(BaseService):
 
     def _handle_satellite_control(self, cmd_data: dict):
         """Handler do sterowania stanem wybudzania Satelity (RESUME / PAUSE)."""
-        match cmd_data.get("action"):
-            case SatelliteAction.RESUME:
-                self._paused = False
-                self.event_bus.log("Otrzymano polecenie RESUME: Wznowienie komunikacji.")
-                if self.state == ServiceState.READY:
-                    self._start_wakeword_listening()
-            case SatelliteAction.PAUSE:
-                self._paused = True
-                self.event_bus.log("Otrzymano polecenie PAUSE: Wstrzymanie komunikacji.")
-                self.event_bus.emit({"type": "paused"})
+        action = cmd_data.get("action")
+        if not action and isinstance(cmd_data.get("data"), dict):
+            action = cmd_data["data"].get("action")
+
+        if action in (SatelliteAction.RESUME, SatelliteAction.RESUME.value, "resume"):
+            self._paused = False
+            self.event_bus.log("Otrzymano polecenie RESUME: Wznowienie komunikacji.")
+            if self.state == ServiceState.READY:
+                self._start_wakeword_listening()
+        elif action in (SatelliteAction.PAUSE, SatelliteAction.PAUSE.value, "pause"):
+            self._paused = True
+            self.event_bus.log("Otrzymano polecenie PAUSE: Wstrzymanie komunikacji.")
+            self.event_bus.emit({"type": "paused"})
 
     def _start_wakeword_listening(self):
         if self._listening_task and not self._listening_task.done():
@@ -106,12 +117,13 @@ class SatelliteService(BaseService):
         """Pętla asynchroniczna nasłuchu mowy (wakeword -> nagrywanie -> streaming)."""
         try:
             while True:
-                await self._handle_wakeword()
                 if self._paused:
-                    break
+                    await asyncio.sleep(0.2)
+                    continue
+                await self._handle_wakeword()
                 if self.state == ServiceState.BUSY:
                     await self._handle_streaming()
-                    break
+                    await self._set_state(ServiceState.READY)
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -166,6 +178,8 @@ class SatelliteService(BaseService):
             self.event_bus.emit({"type": "listening"})
             self.event_bus.log("Start nagrywania...")
             self.audio_manager.empty_queue()
+            self.audio_manager.ring_buffer.clear()
+            self.wakeword.reset()
             await self._set_state(ServiceState.BUSY)
         else:
             AudioPlayer.play_system_sound("Speech Off")
@@ -195,7 +209,7 @@ class SatelliteService(BaseService):
 
     async def _handle_play_audio(self, cmd_data: dict):
         """Odtwarzanie odpowiedzi głosowej lektora."""
-        audio_b64 = cmd_data.get("audio_b64", "")
+        audio_b64 = cmd_data.get("audio_b64") or (cmd_data.get("data") if isinstance(cmd_data.get("data"), dict) else {}).get("audio_b64", "")
         self.event_bus.emit({"type": "speaking"})
         self.event_bus.log("Odtwarzam odpowiedź lektora...")
         try:

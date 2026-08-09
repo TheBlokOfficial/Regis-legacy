@@ -14,10 +14,9 @@ import json
 import logging
 import time
 from typing import Any
-from controller.agent.prompt.builder import build_system_prompt
+
 from controller.agent.prompt.tools_schema import get_tools_schema
-from controller.agent.session.history import build_messages_from_history
-from controller.agent.session.manager import save_and_publish, build_turn
+
 
 logger = logging.getLogger(__name__)
 
@@ -87,134 +86,37 @@ async def _consume_stream(stream_res: Any, emitter: _SSEEmitter) -> tuple[str, l
     return current_content, current_tool_calls
 
 
-def _execute_tool_calls(
-    tool_calls: list[dict], 
-    tools_registry: Any, 
-    emitter: _SSEEmitter, 
-    used_tools_dicts: list[dict]
-) -> list[dict]:
-    """Wykonuje listę zaplanowanych narzędzi i zwraca ich zserializowane wyniki dla historii."""
-    tool_messages = []
-
-    for tc in tool_calls:
-        function_name = tc.get("function", {}).get("name", "")
-        arguments_raw = tc.get("function", {}).get("arguments", {})
-
-        if isinstance(arguments_raw, str):
-            try:
-                args_dict = json.loads(arguments_raw)
-            except json.JSONDecodeError:
-                args_dict = {}
-        else:
-            args_dict = arguments_raw or {}
-
-        args_str = ", ".join(f"{k}={v}" for k, v in args_dict.items())
-        emitter.emit_tool_call_raw(function_name, args_str)
-
-        t_tool_start = time.time()
-        if tools_registry:
-            tool_result = tools_registry.execute_tool(function_name, args_dict)
-        else:
-            tool_result = "Błąd: Brak dostępu do narzędzi."
-        t_tool_dur = (time.time() - t_tool_start) * 1000.0
-
-        emitter.emit_profiler_metric("tools", t_tool_dur)
-
-        used_tools_dicts.append({
-            "name": function_name,
-            "arguments": args_dict,
-            "result": tool_result
-        })
-
-        tool_msg = {
-            "role": "tool",
-            "name": function_name,
-            "tool_call_id": tc.get("id", f"call_{function_name}"),
-            "content": json.dumps(tool_result, ensure_ascii=False) if not isinstance(tool_result, str) else tool_result
-        }
-        tool_messages.append(tool_msg)
-
-    return tool_messages
-
-
-async def run_agent_loop(
+async def predict_next_action(
     stream_provider: Any,
-    session_history: list[dict],
-    user_message: str,
-    satellite_id: str,
-    room: str | None,
-    worker_id: str,
-    model_name: str,
+    messages: list[dict],
     q: asyncio.Queue,
     loop: asyncio.AbstractEventLoop,
-    tools_registry: Any = None,
-) -> str:
+) -> tuple[str, list[dict], int, dict]:
     """
-    Uruchamia pętlę ReAct dla przekazanego dostawcy strumienia.
+    Wysyła jedno żądanie do modelu LLM i strumieniuje odpowiedź.
+    Zwraca krotkę: (content, tool_calls, elapsed_ms, profiler_data)
     """
-    system_prompt = build_system_prompt(room=room)
-    messages = build_messages_from_history(
-        system_prompt=system_prompt,
-        history=session_history,
-        current_message=user_message,
-    )
-
-    max_iterations = 10
-    iteration_count = 0
-
-    used_tools_dicts: list[dict] = []
     emitter = _SSEEmitter(q, loop)
     t_start = time.time()
-    final_content = ""
+    
+    current_content = ""
+    current_tool_calls = []
 
-    while iteration_count < max_iterations:
-        iteration_count += 1
+    tools_schema = get_tools_schema()
 
-        tools_schema = get_tools_schema()
+    try:
+        if hasattr(stream_provider, "chat_stream"):
+            stream_res = stream_provider.chat_stream(messages, tools=tools_schema)
+        elif callable(stream_provider):
+            stream_res = stream_provider(messages, tools=tools_schema)
+        else:
+            raise ValueError("stream_provider musi posiadać metodę chat_stream lub być callable")
 
-        try:
-            if hasattr(stream_provider, "chat_stream"):
-                stream_res = stream_provider.chat_stream(messages, tools=tools_schema)
-            elif callable(stream_provider):
-                stream_res = stream_provider(messages, tools=tools_schema)
-            else:
-                raise ValueError("stream_provider musi posiadać metodę chat_stream lub być callable")
-
-            current_content, current_tool_calls = await _consume_stream(stream_res, emitter)
-
-            if current_content:
-                final_content = current_content
-
-            if current_tool_calls:
-                # Agent zdecydował się użyć narzędzi - zapiszemy co pomyślał, wywołamy je i będziemy kontynuować pętlę.
-                assistant_msg = {"role": "assistant", "content": current_content, "tool_calls": current_tool_calls}
-                messages.append(assistant_msg)
-
-                tool_messages = _execute_tool_calls(current_tool_calls, tools_registry, emitter, used_tools_dicts)
-                messages.extend(tool_messages)
-            else:
-                # Agent zwrócił sam tekst bez chęci używania narzędzi - koniec tury.
-                break
-
-        except Exception as e:
-            logger.exception(f"Błąd w pętli ReAct agenta: {e}")
-            raise
-
+        current_content, current_tool_calls = await _consume_stream(stream_res, emitter)
+            
+    except Exception as e:
+        logger.exception(f"Błąd podczas wywołania stream_provider: {e}")
+        
     elapsed_ms = int((time.time() - t_start) * 1000.0)
-    emitter.emit_done(final_content, elapsed_ms)
-
-    if user_message and final_content:
-        turn = build_turn(
-            user_message=user_message,
-            assistant_response=final_content,
-            satellite_id=satellite_id,
-            room=room,
-            worker_id=worker_id,
-            model_name=model_name,
-            elapsed_ms=elapsed_ms,
-            profiler=emitter.profiler_data,
-            tools=used_tools_dicts,
-        )
-        await save_and_publish(satellite_id, turn)
-
-    return final_content
+    
+    return current_content.strip() if current_content else "", current_tool_calls, elapsed_ms, emitter.profiler_data

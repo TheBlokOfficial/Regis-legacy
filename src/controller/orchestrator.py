@@ -1,129 +1,209 @@
 """
 Orkiestrator Konwersacji Regis (Warstwa 1 – Core).
 
-Jednolity koordynator tury konwersacji (tekstowej lub głosowej).
-Przyjmuje intencje tekstowe/głosowe od nadawcy (sender) i przekazuje je do
-jednolitego strumienia wykonawczego _execute_turn_stream (ReAct + TTS).
+Jednolity koordynator tury konwersacji. Został zrefaktoryzowany na czystą architekturę Event-Driven,
+gdzie pełni rolę nasłuchiwacza na zdarzenia UserSpoke i deleguje pracę do Agenta.
 """
 import asyncio
 import logging
-from typing import AsyncGenerator
 
 import controller.agent.session.store as session_store
 import controller.core.client_registry as client_registry
 import controller.core.state as app_state
 import controller.providers.llm.resolver as providers
-from controller.config.loader import get_controller_url
-from controller.providers.audio.service import transcribe_audio, synthesize_speech
-from controller.agent.engine import run_agent_loop
+from controller.agent.engine import predict_next_action
+from controller.agent.prompt.builder import build_system_prompt
+from controller.agent.session.history import build_messages_from_history
+from controller.agent.session.history import build_messages_from_history
+from controller.core.message_bus import message_bus
+from controller.messages import UserSpoke, AgentSpoke, ConversationTurnMessage, SystemLogMessage, AgentActionMessage
+import json
+import time
 
 logger = logging.getLogger(__name__)
 
 
-async def handle_text_message(
-    text: str,
-    sender: str = "web_ui",
-) -> AsyncGenerator[dict, None]:
-    """
-    Publiczne wejście dla przychodzącej wiadomości tekstowej.
-    Przekazuje treść i nadawcę bezpośrednio do strumienia wykonawczego.
-    """
-    async for event in _execute_turn_stream(text=text, sender=sender, is_audio=False):
-        yield event
-
-
-async def handle_audio_message(
-    audio_bytes: bytes,
-    sender: str = "web_ui",
-) -> AsyncGenerator[dict, None]:
-    """
-    Publiczne wejście dla przychodzącej wiadomości głosowej.
-    Sprawdza obecność audio, wykonuje STT i przekazuje wytranskrybowany tekst do strumienia.
-    """
-    if not audio_bytes:
-        yield {"type": "error", "content": "Przesłany strumień audio jest pusty."}
-        return
-
-    stt_text, stt_ms = await transcribe_audio(audio_bytes)
-
-    if stt_ms > 0:
-        yield {
-            "type": "profiler", 
-            "content": {"metric": "stt", "value": stt_ms}
-        }
-
-    if not stt_text:
-        yield {"type": "error", "content": "Nie rozpoznano tekstu ze strumienia audio."}
-        return
-
-    yield {"type": "stt_result", "content": stt_text}
-
-    async for event in _execute_turn_stream(text=stt_text, sender=sender, is_audio=True):
-        yield event
-
-
-async def _execute_turn_stream(
-    text: str,
-    sender: str,
-    is_audio: bool,
-) -> AsyncGenerator[dict, None]:
+async def handle_user_spoke(text: str, sender: str):
     """
     Prywatna logika wykonawcza: pobiera pokój nadawcy, weryfikuje obecność LLM,
-    uruchamia pętlę ReAct silnika agenta oraz opcjonalnie wykonuje syntezę mowy (TTS).
+    uruchamia pętlę ReAct silnika agenta i publikuje to, co Agent powiedział.
     """
     if not providers.has_llm_provider():
-        yield {"type": "error", "content": "Brak dostępnego providera LLM."}
+        logger.error("Brak dostępnego providera LLM.")
         return
 
     backend = providers.get_llm_backend()
     if backend is None:
-        yield {"type": "error", "content": "Brak dostępnego providera LLM."}
+        logger.error("Brak dostępnego providera LLM.")
         return
 
     room = client_registry.get_client_room(sender)
-    session_history = session_store.get_session_history(sender)
+    
+    # 0. Inicjujemy Obiekt Sesji
+    session = session_store.get_session_for_client(sender)
+
+    # 1. Zapisujemy wiadomość użytkownika bezpośrednio do obiektu sesji
+    if text:
+        session.append_message(
+            role="user",
+            content=text,
+            room=room
+        )
+        await message_bus.publish(UserSpoke(text=text, sender=sender))
+
+    # 2. Pobieramy pełną historię z obiektu
+    session_history = session.get_history()
     provider_name = backend.get_provider_name()
     model_name = getattr(backend, "model_name", "nieznany")
 
-    yield {
-        "type": "routing_info",
-        "worker_id": provider_name,
-        "model": model_name,
-        "provider": provider_name,
-    }
+    system_prompt = build_system_prompt(room=room)
+    # Nie przekazujemy current_message, bo już siedzi w session_history!
+    messages = build_messages_from_history(
+        system_prompt=system_prompt,
+        history=session_history,
+    )
+
+    logger.info(f"Routing do: {provider_name} (model: {model_name}) dla sendera: {sender}")
 
     q: asyncio.Queue = asyncio.Queue()
     loop = asyncio.get_event_loop()
 
-    # Krok Przetwarzania LLM (Mózg Agenta ReAct)
+    # Funkcja pomocnicza emitująca logi narzędzi do kolejki UI
+    def emit_tool_log(q, loop, type_, content):
+        loop.call_soon_threadsafe(q.put_nowait, {"type": type_, "content": content})
+
     async def _runner():
+        max_iterations = 10
+        iteration_count = 0
+        final_content = ""
+        total_elapsed_ms = 0
+        profiler_data = {}
+
         try:
-            final_content = await run_agent_loop(
-                stream_provider=backend,
-                session_history=session_history,
-                user_message=text or "",
-                satellite_id=sender,
-                room=room,
-                worker_id=provider_name,
-                model_name=model_name,
-                q=q,
-                loop=loop,
-                tools_registry=app_state.tools_registry,
-            )
+            while iteration_count < max_iterations:
+                iteration_count += 1
+                
+                # Pobierz aktualną historię (w każdym kroku może być bogatsza o tool_calls i results)
+                session_history = session.get_history()
+                messages = build_messages_from_history(
+                    system_prompt=system_prompt,
+                    history=session_history,
+                )
 
-            if is_audio and final_content:
-                b64_audio, tts_ms = await synthesize_speech(final_content)
-                if tts_ms > 0:
-                    loop.call_soon_threadsafe(q.put_nowait, {
-                        "type": "profiler", 
-                        "content": {"metric": "tts", "value": tts_ms}
+                content, tool_calls, elapsed_ms, p_data = await predict_next_action(
+                    stream_provider=backend,
+                    messages=messages,
+                    q=q,
+                    loop=loop,
+                )
+                
+                total_elapsed_ms += elapsed_ms
+                profiler_data.update(p_data) # Uproszczone złączenie profilera
+
+                # Zapisujemy wypowiedź Agenta do obiektu sesji
+                if content or tool_calls:
+                    session.append_message(
+                        role="assistant",
+                        content=content,
+                        room=room,
+                        tool_calls=tool_calls,
+                        model=model_name,
+                        worker_id=provider_name
+                    )
+
+                if content:
+                    final_content = content
+                    # Jeżeli Agent zdecydował się odezwać do użytkownika, natychmiast wysyłamy to w świat.
+                    # Pętla jednak może kręcić się dalej, jeśli załączył narzędzia!
+                    await message_bus.publish(AgentSpoke(text=content, sender=sender))
+
+                if not tool_calls:
+                    # Brak narzędzi = Agent uważa sprawę za zakończoną. Kończymy pętlę.
+                    break
+                    
+                # Mamy narzędzia do wykonania:
+                for tc in tool_calls:
+                    function_name = tc.get("function", {}).get("name", "")
+                    arguments_raw = tc.get("function", {}).get("arguments", {})
+
+                    if isinstance(arguments_raw, str):
+                        try:
+                            args_dict = json.loads(arguments_raw)
+                        except json.JSONDecodeError:
+                            args_dict = {}
+                    else:
+                        args_dict = arguments_raw or {}
+
+                    args_str = ", ".join(f"{k}={v}" for k, v in args_dict.items())
+                    emit_tool_log(q, loop, "tool_call", {
+                        "name": function_name,
+                        "arguments": args_dict
                     })
-                if b64_audio:
-                    loop.call_soon_threadsafe(q.put_nowait, {"type": "tts_audio", "content": b64_audio})
+                    await message_bus.publish(AgentActionMessage(
+                        satellite_id=sender,
+                        action_type="tool_call",
+                        tool_name=function_name,
+                        tool_args=args_dict
+                    ))
+                    await message_bus.publish(SystemLogMessage(
+                        level="INFO",
+                        source="Agent ReAct",
+                        message=f"Wywołanie narzędzia: {function_name}({args_str})"
+                    ))
 
+                    t_tool_start = time.time()
+                    try:
+                        tool_result_raw = app_state.tools_registry.execute_tool(function_name, args_dict)
+                        tool_result = json.dumps(tool_result_raw, ensure_ascii=False) if not isinstance(tool_result_raw, str) else tool_result_raw
+                    except Exception as exc:
+                        logger.error(f"Błąd narzędzia '{function_name}': {exc}")
+                        tool_result = f'{{"error": "{str(exc)}"}}'
+                        
+                    t_tool_dur = int((time.time() - t_tool_start) * 1000.0)
+                    
+                    emit_tool_log(q, loop, "tool_result", {
+                        "name": function_name,
+                        "result": tool_result
+                    })
+                    await message_bus.publish(AgentActionMessage(
+                        satellite_id=sender,
+                        action_type="tool_result",
+                        tool_name=function_name,
+                        tool_result=tool_result
+                    ))
+
+                    tool_msg = {
+                        "role": "tool",
+                        "name": function_name,
+                        "content": tool_result
+                    }
+                    if "id" in tc:
+                        tool_msg["tool_call_id"] = tc["id"]
+                        
+                    # Zapisujemy wynik narzędzia
+                    session.append_message(
+                        room=room,
+                        **tool_msg
+                    )
+
+            # Po wyjściu z pętli publikujemy ewentualną telemetrię
+            if final_content:
+                await message_bus.publish(ConversationTurnMessage(
+                    satellite_id=sender,
+                    user_text=text,
+                    assistant_text=final_content,
+                    worker_id=provider_name,
+                    room=room,
+                    tools=[],
+                    elapsed_ms=total_elapsed_ms,
+                    profiler=profiler_data,
+                    model=model_name
+                ))
+                
         except Exception as e:
             logger.exception(f"Błąd w pętli orkiestratora: {e}")
-            loop.call_soon_threadsafe(q.put_nowait, {"type": "error", "content": str(e)})
+        finally:
+            loop.call_soon_threadsafe(q.put_nowait, {"type": "done", "content": final_content, "elapsed_ms": total_elapsed_ms})
 
     task = asyncio.create_task(_runner())
 
@@ -136,20 +216,13 @@ async def _execute_turn_stream(
     await task
 
 
-# Rejestracja handlerów w Agnostycznej Magistrali Wiadomości (MessageBus)
-from controller.core.message_bus import message_bus
-from controller.messages import TextMessage, AudioMessage
+# =============================================================================
+# REJESTRACJA W MAGISTRALI (EVENT SUBSCRIBERS)
+# =============================================================================
+
+async def _on_user_spoke(msg: UserSpoke):
+    async for item in handle_user_spoke(msg.text, msg.sender):
+        yield item
 
 
-async def _on_text_message(msg: TextMessage) -> AsyncGenerator[dict, None]:
-    async for event in handle_text_message(msg.text, msg.sender):
-        yield event
-
-
-async def _on_audio_message(msg: AudioMessage) -> AsyncGenerator[dict, None]:
-    async for event in handle_audio_message(msg.audio_bytes, msg.sender):
-        yield event
-
-
-message_bus.subscribe(TextMessage, _on_text_message)
-message_bus.subscribe(AudioMessage, _on_audio_message)
+message_bus.subscribe_stream(UserSpoke, _on_user_spoke)

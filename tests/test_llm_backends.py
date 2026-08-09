@@ -45,7 +45,8 @@ from controller.providers.llm.client_app import ClientAppBackend
 @patch.object(OpenRouterBackend, "is_available", return_value=False)
 @patch("controller.providers.llm.resolver.endpoints_cloud.get_cloud_providers", return_value=[])
 def test_get_llm_backend_returns_client_app_if_registered(mock_get_cloud, mock_openrouter_avail):
-    providers.client_registry.client_registry = {"worker_1": {"id": "worker_1", "priority": 10, "model_name": "qwen3.5:9b"}}
+    providers.client_registry.client_registry.clear()
+    providers.client_registry.client_registry["worker_1"] = {"id": "worker_1", "priority": 10, "model_name": "qwen3.5:9b"}
     backend = providers.get_llm_backend()
     assert isinstance(backend, ClientAppBackend)
     assert backend.model_name == "qwen3.5:9b"
@@ -54,46 +55,28 @@ def test_get_llm_backend_returns_client_app_if_registered(mock_get_cloud, mock_o
 @patch.object(OpenRouterBackend, "is_available", return_value=False)
 @patch("controller.providers.llm.resolver.endpoints_cloud.get_cloud_providers", return_value=[])
 def test_get_llm_backend_returns_none_if_no_worker(mock_get_cloud, mock_openrouter_avail):
-    providers.client_registry.client_registry = {}
+    providers.client_registry.client_registry.clear()
     backend = providers.get_llm_backend()
     assert backend is None
 
 
-def test_build_messages_from_history_handles_tool_dicts_and_filters_raw_logs():
+def test_build_messages_from_history_flat():
     from controller.agent.session.history import build_messages_from_history
 
     history = [
-        {
-            "user": "Wyłącz światło",
-            "assistant": "Światło wyłączone.",
-            "tools": [
-                # Stary napisowy log CLI - powinien zostać zignorowany
-                "< Kontroler zwrócił: {\"result\": \"success\"}",
-                # Nowa struktura słownikowa - powinna być poprawnie rozbita na <action> i <tool_response>
-                {
-                    "thought": "Wyłączam światło w pracowni",
-                    "name": "execute_action",
-                    "arguments": {"action": "turn_off", "entity_id": ["light.pracownia"]},
-                    "result": "{\"result\": \"success\"}"
-                }
-            ],
-            "timestamp": "12:00:00"
-        }
+        {"role": "user", "content": "Wyłącz światło"},
+        {"role": "assistant", "content": "Światło wyłączone."}
     ]
 
-    messages = build_messages_from_history("System Prompt", history, current_message="Włącz światło")
+    messages = build_messages_from_history("System Prompt", history, current_message=None)
 
-    # Powinny być: System prompt, User prompt, Assistant final, Current User message
-    assert len(messages) == 4
+    assert len(messages) == 3
     assert messages[0]["role"] == "system"
+    assert messages[0]["content"] == "System Prompt"
+    assert messages[1]["role"] == "user"
     assert messages[1]["content"] == "Wyłącz światło"
+    assert messages[2]["role"] == "assistant"
     assert messages[2]["content"] == "Światło wyłączone."
-    assert messages[3]["content"] == "Włącz światło"
-
-    # Upewnijmy się, że żaden komunikat assistant nie zawiera surowego napisowego logu CLI
-    for m in messages:
-        if m["role"] == "assistant":
-            assert "< Kontroler zwrócił:" not in m["content"]
 
 
 def test_openrouter_accumulate_tool_call():
@@ -122,30 +105,26 @@ def test_openrouter_accumulate_tool_call():
     assert accumulator[0]["function"]["arguments"] == '{"action": "turn_on"}'
 
 
-def test_run_agent_loop_simple():
+def test_predict_next_action_simple():
     import asyncio
-    from controller.agent.engine import run_agent_loop
+    from controller.agent.engine import predict_next_action
 
     class MockStreamProvider:
-        def chat_stream(self, messages, tools=None):
+        async def chat_stream(self, messages, tools=None):
             yield {"type": "content", "content": "Cześć!"}
 
     async def _test():
         q = asyncio.Queue()
         loop = asyncio.get_running_loop()
-        session_history = [{"role": "user", "content": "Hej"}]
+        messages = [{"role": "system", "content": "Jesteś agentem"}, {"role": "user", "content": "Hej"}]
 
-        return await run_agent_loop(
+        content, tool_calls, ms, profiler = await predict_next_action(
             stream_provider=MockStreamProvider(),
-            session_history=session_history,
-            user_message="Hej",
-            satellite_id="test_sat",
-            room="salon",
-            worker_id="test_worker",
-            model_name="test_model",
+            messages=messages,
             q=q,
             loop=loop,
         )
+        return content
 
     result = asyncio.run(_test())
     assert result == "Cześć!"
