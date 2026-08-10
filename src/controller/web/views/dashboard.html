@@ -2,29 +2,35 @@
 <section id="view-dashboard" class="view-section active">
     <div class="view-header">
         <h2>Pulpit Systemu</h2>
-        <div id="system-readiness-badge" class="badge-readiness full-mode" style="margin-left: auto;">
-            <span class="dot online"></span> TRYB PEŁNY (ReAct)
+    </div>
+
+    <div class="status-strip">
+        <div class="strip-stat">
+            <span class="strip-label">Uptime</span>
+            <span class="strip-value" id="uptime">—</span>
+        </div>
+        <div class="strip-divider"></div>
+        <div class="strip-stat">
+            <span class="strip-label">Zmysły</span>
+            <span class="strip-value" id="providers-count">0</span>
+        </div>
+        <div class="strip-divider"></div>
+        <div class="strip-stat">
+            <span class="strip-label">Satelity</span>
+            <span class="strip-value" id="satellite-count">0</span>
+        </div>
+        <div class="strip-divider"></div>
+        <div class="strip-stat">
+            <span class="strip-label">Aplikacje</span>
+            <span class="strip-value" id="worker-count">0</span>
+        </div>
+        <div class="strip-badge-area">
+            <div id="system-readiness-badge" class="badge-readiness full-mode">
+                <span class="dot online"></span> Tryb pełny
+            </div>
         </div>
     </div>
-    <div class="status-grid">
-        <div class="status-card">
-            <span class="label">Uptime</span>
-            <span class="value" id="uptime">—</span>
-        </div>
-        <div class="status-card">
-            <span class="label">Zmysły &amp; Dostawcy</span>
-            <span class="value" id="providers-count">0</span>
-        </div>
-        <div class="status-card">
-            <span class="label">Satelity</span>
-            <span class="value" id="satellite-count">0</span>
-        </div>
-        <div class="status-card">
-            <span class="label">Aplikacje Klienckie</span>
-            <span class="value" id="worker-count">0</span>
-        </div>
-    </div>
-    
+
     <div class="dashboard-grid">
         <!-- Lewa Kolumna (~60%): Zmysły & Dostawcy oraz Aplikacje Klienckie -->
         <div class="dashboard-col dashboard-main-col">
@@ -64,7 +70,7 @@
                     <h3>Integracje</h3>
                 </div>
                 <div class="list-container" id="integrations-tree-body">
-                    <div class="empty-state">Brak skonfigurowanych integracji.</div>
+                    <div class="empty-state">Brak aktywnych integracji. Uruchom Home Assistant lub inną integrację, aby ją tutaj zobaczyć.</div>
                 </div>
             </div>
         </div>

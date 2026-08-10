@@ -101,38 +101,38 @@ export function renderNodeCard(node) {
     const ollamaConfig = isDict ? (services.ollama_worker || services.worker) : (Array.isArray(services) && services.includes("worker") ? node : null);
     if (ollamaConfig) {
         const model = ollamaConfig.model_name || node.model_name || "qwen2.5:7b";
-        tagsHtml += `<span class="service-tag">LLM: ${escHtml(model)}</span>`;
+        tagsHtml += `<span class="service-tag"><span class="tech-value">LLM: ${escHtml(model)}</span></span>`;
     }
 
     const sttConfig = isDict ? services.stt_worker : null;
     if (sttConfig) {
         const sttSize = sttConfig.stt_model_size || "small";
-        tagsHtml += `<span class="service-tag">STT: Whisper (${escHtml(sttSize)})</span>`;
+        tagsHtml += `<span class="service-tag"><span class="tech-value">STT: Whisper (${escHtml(sttSize)})</span></span>`;
     }
 
     const ttsConfig = isDict ? services.tts_worker : null;
     if (ttsConfig) {
-        const ttsModel = ttsConfig.tts_model_name || "piper";
-        tagsHtml += `<span class="service-tag">TTS: Piper</span>`;
+        tagsHtml += `<span class="service-tag"><span class="tech-value">TTS: Piper</span></span>`;
     }
 
     const satConfig = isDict ? services.satellite : (Array.isArray(services) && services.includes("satellite") ? node : null);
     if (satConfig) {
         const room = satConfig.room || node.room;
         if (room && room !== "brak") {
-            tagsHtml += `<span class="service-tag">Satelita: ${escHtml(room)}</span>`;
+            tagsHtml += `<span class="service-tag"><span class="tech-value">Satelita: ${escHtml(room)}</span></span>`;
         }
     }
 
     card.id = `node-${id}`;
     card.className = "list-row";
+    card.setAttribute('title', host !== '—' ? `Adres: ${host}` : '');
     card.innerHTML = `
         <span class="dot online"></span>
         <div class="list-info">
             <div class="list-title-group">
                 <span class="list-title">${escHtml(clientTitle)}</span>
             </div>
-            <span class="list-meta">Adres: ${escHtml(host)} • Połączony</span>
+            <span class="list-meta">Połączony</span>
             <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">${tagsHtml}</div>
         </div>
         <div class="list-actions">
@@ -371,10 +371,10 @@ export function updateSatelliteVAD(satId, eventType) {
 
     if (eventType === "vad_speech") {
         el.textContent = "Mowa";
-        el.className   = "vad-status active";
+        el.className   = "vad-status active speech";
     } else if (eventType === "wakeword") {
         el.textContent = "Wakeword";
-        el.className   = "vad-status active";
+        el.className   = "vad-status active wakeword";
     } else if (eventType === "vad_silence") {
         el.textContent = "Cisza";
         el.className   = "vad-status";
@@ -390,10 +390,10 @@ export function updateSystemReadiness(ctrlInfo = {}) {
     const fullMode = ctrlInfo.full_mode !== false;
     if (fullMode) {
         badge.className = "badge-readiness full-mode";
-        badge.innerHTML = `<span class="dot online"></span> TRYB PEŁNY (ReAct)`;
+        badge.innerHTML = `<span class="dot online"></span> Tryb pełny`;
     } else {
         badge.className = "badge-readiness fallback-mode";
-        badge.innerHTML = `<span class="dot offline"></span> TRYB FALLBACK (Offline NLU)`;
+        badge.innerHTML = `<span class="dot offline"></span> Tryb awaryjny`;
     }
 }
 

@@ -3,40 +3,57 @@
    Karty statusowe, listy, przyciski, logi oraz toasty.
    ========================================================= */
 
-/* ── Kafelki Statusu ── */
-.status-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-bottom: 28px;
-    width: 100%;
-}
-
-.status-card {
+/* ── Status Strip ── */
+.status-strip {
+    display: flex;
+    align-items: center;
     background: #141414;
     border: 1px solid #27272a;
     border-radius: 12px;
-    padding: 16px 20px;
+    padding: 14px 24px;
+    margin-bottom: 28px;
+    gap: 0;
+}
+
+.strip-stat {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    transition: border-color 0.15s ease, background 0.15s ease;
+    gap: 3px;
+    padding: 0 24px;
 }
 
-.status-card:hover {
-    background: #18181b;
-    border-color: #3f3f46;
+.strip-stat:first-child {
+    padding-left: 0;
 }
 
-.status-card .label {
-    font-size: 13.5px;
+.strip-label {
+    font-size: 11.5px;
+    font-weight: 400;
     color: #888888;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 
-.status-card .value {
-    font-size: 26px;
+.strip-value {
+    font-size: 20px;
     font-weight: 600;
     color: #ffffff;
+    font-family: var(--font-mono);
+    line-height: 1.2;
+}
+
+.strip-divider {
+    width: 1px;
+    height: 38px;
+    background: #27272a;
+    flex-shrink: 0;
+}
+
+.strip-badge-area {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    padding-left: 24px;
 }
 
 /* ── Listy Wierszowe (Adaptive Density & Dynamic Height) ── */
@@ -109,14 +126,25 @@
 }
 
 .list-row .list-meta {
-    font-family: var(--font-mono);
-    font-size: 12px;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
     color: #a1a1aa;
     line-height: 1.4;
     margin-top: 3px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* Dane techniczne: nazwy modeli, adresy, identyfikatory */
+.tech-value {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: #a1a1aa;
+    background: #1a1a1a;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid #2a2a2e;
 }
 
 .list-row .list-actions {
@@ -128,26 +156,42 @@
 }
 
 .list-row .service-tag {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 500;
-    padding: 2px 7px;
-    border: none;
-    border-radius: 6px;
-    background: #1c1c1c;
-    color: #a1a1aa;
+    display: inline-flex;
+    align-items: center;
     white-space: nowrap;
 }
 
 .empty-state {
     padding: 24px 16px;
     margin: auto 0;
-    color: #a1a1aa;
-    font-size: 13.5px;
+    color: #888888;
+    font-size: 13px;
     font-weight: 400;
     text-align: center;
     border: none;
     background: transparent;
+}
+
+/* ── Status VAD Satelity ── */
+.vad-status {
+    font-size: 12px;
+    font-weight: 500;
+    color: #888888;
+    letter-spacing: 0.02em;
+    transition: color 0.2s ease;
+}
+
+.vad-status.active {
+    color: #ffffff;
+}
+
+.vad-status.active.speech {
+    color: #4caf4c;
+}
+
+.vad-status.active.wakeword {
+    color: #4caf4c;
+    font-weight: 600;
 }
 
 /* ── Banner Stanu Systemu w sekcji Zmysłów (Empty Readiness Banner) ── */
@@ -281,17 +325,17 @@
     cursor: not-allowed;
 }
 
-/* ── Nagłówki Kategori Zmysłów i Podsekcji ── */
+/* ── Nagłówki Podkategorii Zmysłów ── */
 .category-subhead {
-    padding: 10px 16px 6px;
-    font-size: 11.5px;
-    font-weight: 600;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-    color: #a1a1aa;
-    background: rgba(255, 255, 255, 0.02);
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    padding: 7px 16px 7px 14px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: #888888;
+    background: #111111;
+    border-top: 1px solid #27272a;
+    border-bottom: 1px solid #27272a;
+    border-left: 2px solid #3f3f46;
 }
 
 .category-subhead:first-child {

@@ -6,13 +6,15 @@ Ten dokument definiuje duszę projektu Regis. Służy jako najwyższy kompas dla
 
 ## 1. Czym jest Regis?
 
-Regis to **autonomiczne oprogramowanie agenta** — instalujesz je na dedykowanym sprzęcie (np. RPi5, mini PC) i od razu otrzymujesz działający system z własnym panelem webowym. Otwierasz przeglądarkę, widzisz dashboard: status węzłów, satelit, aktywnych sesji i integracji. Integracje dodajesz **do Regisa** — nie na odwrót.
+Regis to **autonomiczne oprogramowanie agenta** — instalujesz je na dedykowanej maszynie (mini PC) i od razu otrzymujesz działający system z własnym panelem webowym. Otwierasz przeglądarkę, widzisz dashboard: aktualny status agenta, kanału głosowego, satelitów i integracji. Integracje dodajesz **do Regisa** — nie na odwrót.
 
 Regis nie jest frameworkiem ani biblioteką. Jest produktem — tak jak Home Assistant jest produktem do smart home, Regis jest produktem do prowadzenia agenta w złożonym środowisku osobistym i domowym. Jego rdzeń to pełnoprawny agent (pętla ReAct, zarządzanie sesjami, rejestr narzędzi) z pluginowalną warstwą zmysłów (LLM, STT, TTS, kanały komunikacji) i opcjonalnymi integracjami narzędziowymi (HA, web, kamery). Możesz go rozszerzyć — ale działa i bez żadnych rozszerzeń.
 
 **Istota projektu:** Regis to oprogramowanie które interaktuje z innymi oprogramowaniami w dokładnie taki sam sposób jak człowiek. Nie interesuje go low-level — protokoły, sterowniki, sposób w jaki żarówka Zigbee negocjuje połączenie z koncentratorem. Regis widzi to co widzi człowiek patrzący na dashboard: włączona lub wyłączona. Dlatego Home Assistant — platforma z setkami integracji i całym ekosystemem community — jest z perspektywy Regisa po prostu jedną integracją w katalogu `integrations/`. Regis nie zarządza urządzeniami. Pyta systemy które to robią. To jest właściwy poziom abstrakcji, nie ograniczenie.
 
 Regis jest projektem osobistym — zaprojektowanym do poruszania się w złożonym środowisku domowym i osobistej przestrzeni użytkownika. Nie jest narzędziem enterprise. Nie służy do scrapowania internetu, przetwarzania tysięcy dokumentów ani obsługi korporacyjnych procesów — choć agent ReAct technicznie byłby do tego zdolny. Fakt że coś jest możliwe, nie znaczy że powinno tu trafić. Regis to asystent z osobowością, nie platforma do automatyzacji.
+
+**Tryb podstawowy — głosowy:** Regis komunikuje się z użytkownikiem przez satelity głosowe (ESP32, RegisDesktop). Interakcja głosowa jest trybem prymarnym dla użytkownika końcowego. Panel webowy i czat tekstowy pełnią rolę narzędzi deweloperskich (podgląd wywołań agenta, debugowanie, konfiguracja) — nie są przeznaczone do codziennej interakcji z systemem.
 
 Projekt jest hobby — jakość, spójność i czystość architektury są ważniejsze niż szybkie dostarczanie funkcji.
 
@@ -30,6 +32,25 @@ Największym grzechem w tym projekcie jest implementacja funkcji "na siłę", ty
 
 Architektura Regisa dzieli się na trzy warstwy o ściśle zdefiniowanych rolach i granicach. Każda warstwa komunikuje się z warstwą wyżej wyłącznie przez abstrakcyjne interfejsy — nigdy bezpośrednio przez konkretne implementacje.
 
+### 3.0 Hierarchia Komponentów
+
+Trzy warstwy opisują *granice* systemu. Wewnątrz Warstwy 2 obowiązuje hierarchia ważności komponentów:
+
+**LLM Provider** — najwyżej w hierarchii. To jest sam agent — jego zdolność do rozumowania, planowania i działania w oparciu o pętlę ReAct. Bez aktywnego LLM Regis nie istnieje jako agent; jedynym trybem jest Parser offline (minimalny fallback).
+
+**Kanał Głosowy (`voice_channel`)** — STT i TTS tworzą logicznie jeden byt, niżej w hierarchii niż LLM, ale wymagany dla interakcji użytkownika końcowego. Oceniane razem, nie osobno:
+- `voice_channel_ready = STT_active AND TTS_active`
+- Stan częściowy (STT bez TTS lub odwrotnie) = kanał niedostępny. Nie ma stanu "słyszę użytkownika, ale nie mogę odpowiedzieć głosowo" — taki stan niszczy spójność doświadczenia.
+- Technicznie są to dwa osobne serwisy (osobni providerzy), ale systemowo stanowią jeden warunek operacyjności.
+
+**Satelity** — interfejsy wymiany audio i tekstu z użytkownikiem. Nie stanowią inteligencji systemu; są cienkimi klientami strumieniującymi audio do Audio Service.
+
+Ta hierarchia nie zmienia trójwarstwowego modelu architektonicznego — opisuje priorytety i logiczne powiązania wewnątrz Warstwy 2.
+
+**Ważne: Kanał Głosowy to infrastruktura I/O — nie narzędzie agenta**
+
+STT i TTS nie są narzędziami w rozumieniu `ToolRegistry` — agent ich nigdy świadomie nie wywołuje. Są przezroczystą infrastrukturą I/O satelity: STT konwertuje głos użytkownika na tekst *przed* agentem, TTS konwertuje tekst agenta na głos *po* agencie. Agent operuje wyłącznie na tekście i nie ma bezpośredniej wiedzy o warstwach konwersji. Orchestrator zarządza tą infrastrukturą na podstawie `TurnContext` (→ §5.1).
+
 ### 3.1 Warstwa 1 — Core (Układ Nerwowy)
 
 Core to wszystko, co stanowi samego agenta. Instalując Regisa, dostajesz kompletny mózg i układ nerwowy — gotowy do działania po podłączeniu zmysłów. Core nie wymaga konfiguracji, żeby *istnieć* — wymaga podłączonych providerów, żeby *działać*.
@@ -39,9 +60,9 @@ Core to wszystko, co stanowi samego agenta. Instalując Regisa, dostajesz komple
 - **Session Manager** — historia konwersacji per sesja, przechowywanie i odtwarzanie kontekstu
 - **Tool Registry** — mechanizm rejestracji i wywoływania narzędzi (nie konkretne narzędzia — tylko mechanizm)
 - **Abstrakcyjne interfejsy dla zmysłów:**
-  - `ILLMProvider` — gniazdo na model językowy
-  - `ISTTProvider` — gniazdo na transkrypcję mowy
-  - `ITTSProvider` — gniazdo na syntezę mowy
+  - `ILLMProvider` — gniazdo na model językowy (agent, rdzeń systemu)
+  - `ISTTProvider` — gniazdo na transkrypcję mowy (wejście Kanału Głosowego)
+  - `ITTSProvider` — gniazdo na syntezę mowy (wyjście Kanału Głosowego)
   - `ISatellite` — gniazdo na kanał komunikacji z użytkownikiem
 - **Protokół wewnętrzny** — schematy i kontrakty komunikacyjne między komponentami
 
@@ -60,7 +81,10 @@ Wymienna cybernetyka agenta. Konkretne implementacje podłączane do interfejsó
 | `ITTSProvider` | Piper (lokalny), Cloud TTS API |
 | `ISatellite` | ESP32, terminal, HTTP API |
 
-**Regis Desktop** jest szczególnym przypadkiem warstwy 2 — to **menedżer usług** który bundluje wiele implementacji warstwy 2 w jednej aplikacji: satelitę (`ISatellite`), lokalny LLM (`ILLMProvider`), lokalne STT (`ISTTProvider`) i lokalne TTS (`ITTSProvider`). Każda z tych usług rejestruje się w Regisie niezależnie. Użytkownik może włączyć lub wyłączyć konkretne usługi — np. uruchomić tylko STT i TTS lokalnie, a LLM pozostawić w chmurze.
+**Regis Desktop** to implementacja satelity warstwy 2 dla systemu Windows. Pełni dwie role zależne od fazy projektu:
+
+- **Faza deweloperska (obecna):** Bundluje satelitę (`ISatellite`) z lokalnymi usługami LLM (Ollama), STT (Faster-Whisper) i TTS (Piper). Pozwala na lokalną pracę bez dedykowanej maszyny i bez chmury. Jest to stan tymczasowy — nie docelowy.
+- **Finalny produkt:** Wyłącznie satelita — głosowy interfejs użytkownika na komputerze Windows (VAD, WakeWord lokalne, audio I/O). Usługi LLM, STT i TTS działają wtedy na dedykowanej maszynie (mini PC) jako osobne procesy (Ollama + Audio Service).
 
 **Kluczowa właściwość:** Warstwa 2 jest wymienialna bez zmian w Core i bez zmian w warstwie 3. Możesz dołożyć nową satelitę (np. aplikację mobilną) i żaden istniejący kod poza warstwą 2 nie wymaga modyfikacji.
 
@@ -102,72 +126,78 @@ Konkretne zdolności agenta do działania w świecie zewnętrznym. W pełni opcj
 
 ---
 
-## 3.5 Referencyjna Implementacja (Przykładowy Deployment)
+## 3.5 Referencyjna Implementacja (Docelowy Deployment)
 
-> Poniższe sekcje opisują **konkretną implementację referencyjną** — nie definicję systemu. RPi5, Windows Node i ESP32 to implementacje warstwy 2. Architektura Regisa jest od nich niezależna i może być wdrożona na innym sprzęcie lub z innymi kanałami komunikacji.
+> Poniższe sekcje opisują **docelową implementację referencyjną** — nie definicję systemu. Mini PC, RegisDesktop i ESP32 to konkretny deployment. Architektura Regisa jest od nich niezależna i może być wdrożona na innym sprzęcie lub z innymi kanałami komunikacji.
 
-### Kontroler (`controller`)
-- **Rola:** Mózg systemu i jedyne źródło prawdy. Zarządza rejestrem aktywnych węzłów roboczych, routingiem sesji oraz wykonywaniem narzędzi Home Assistant.
-- **Deployment:** Zawsze i tylko Raspberry Pi 5 (Linux). Singleton — może istnieć dokładnie jedna instancja. Dystrybuowany jako pakiet `.whl`.
-- **Kluczowa zasada:** Kontroler to lekki daemon — nigdy nie hostuje modelu LLM. Jest jedynym punktem komunikacji z Home Assistant; węzły robocze nigdy nie mają dostępu do HA bezpośrednio.
-- **Routing:** Kontroler wybiera najlepszy dostępny węzeł (preferuje wyższy tier) dla każdej nowej sesji. Graceful migration między aktywnymi sesjami nie jest zaimplementowana — system działa na zasadzie best-effort.
+### Centrum Systemu: Mini PC (24/7)
 
-### Węzeł roboczy (`worker`) — Linux / RPi5
-- **Rola:** Zawsze uruchomiony na RPi5 komponent bezpieczeństwa systemu. Hostuje dwa serwisy offline:
-  1. **Parser offline** — lekki model zdolny do pracy na RPi5, z Structured Outputs. Obsługuje proste komendy urządzeń gdy żaden pełny provider LLM nie jest dostępny.
-  2. **Awaryjny STT** — lekki model Whisper do transkrypcji audio w trybie offline.
-- **Deployment:** Pakiet `.whl` instalowany przez `pip` na RPi5 (Linux). Brak UI — czysty serwer HTTP.
-- **Uwaga:** RPi5 nie ma podłączonego mikrofonu — **nie nagrywa dźwięku samodzielnie**. STT działa wyłącznie na danych strumieniowanych przez Satelity.
-- **Status:** Parser i awaryjny STT są ostatnią linią obrony — aktywowane gdy system przechodzi w tryb fallback (brak przynajmniej jednego providera spośród STT, LLM, TTS). Nie są częścią normalnej ścieżki produkcyjnej.
+Mini PC (np. Minisforum lub podobny x86) działa nieprzerwanie jako centrum systemu. Hostuje trzy procesy:
 
-### Regis Desktop (Menedżer Usług Warstwy 2) — Windows PC
-- **Rola:** Pełnoprawna **aplikacja Windows** z interfejsem terminalowym. Jest menedżerem usług bundlującym wiele implementacji warstwy 2 w jednej aplikacji: satelitę (VAD, WakeWord, audio I/O), lokalny worker LLM (Ollama), lokalne STT (Faster-Whisper) i lokalne TTS (Piper). Każda z tych usług rejestruje się w Regisie niezależnie — użytkownik może włączać i wyłączać konkretne usługi wedle potrzeb.
-- **Deployment:** Dystrybuowany jako **Windows Installer** (`RegisDesktopSetup.exe`, Inno Setup) — wymaga Python zainstalowanego w systemie.
-- **Rola producencyjna:** Opcjonalna. W typowej produkcji Regis Desktop nie jest uruchomiony — system korzysta z providerów chmurowych. Gdy jest aktywny, automatycznie rejestruje się jako lokalny provider STT, LLM i TTS.
-- **Główne zastosowania:** Środowisko deweloperskie (lokalny LLM, tańszy STT/TTS), awaryjny fallback gdy chmura jest niedostępna.
-- **Koegzystencja:** Worker LLM i Satellite mogą działać jednocześnie — nie wykluczają się.
+| Proces | Rola | Technologia |
+|---|---|---|
+| **Controller** | Lekki daemon: routing sesji, rejestr narzędzi, Tool Registry, proxy HA | Python (Twój kod). Nigdy nie hostuje LLM ani audio. |
+| **Ollama** | LLM inference, HTTP API na `localhost:11434` | Zewnętrzny daemon Go. Controller rozmawia z nim bezpośrednio przez HTTP — bez wrappera. |
+| **Audio Service** | STT (Faster-Whisper) + TTS (Piper), HTTP API | Python (Twój kod). Osobny daemon — satelity strumieniują audio przez sieć. |
 
-### Satelita — typy interfejsów
-Każdy interfejs użytkownika jest architektonicznie Satelitą — różnią się medium:
-  - **ESP32** — miniaturowy, dedykowany sprzęt w domu; robi VAD i strumieniowanie audio. Tani, niskoprądowy, idealny do stałego montażu.
-  - **Windows PC** (`node`) — aplikacja z UI terminalowym; robi VAD + WakeWord lokalnie, resztę deleguje do centrum.
-  - **Linux** — wariant headless lub terminalowy.
+**Zasady deploymentu:**
+- Controller pozostaje lekkim daemonem — nie hostuje LLM, nie przetwarza audio.
+- Ollama zarządza sobą jako zewnętrzny daemon. Controller jedynie wywołuje jego HTTP API.
+- Audio Service musi być osobnym procesem: satelity (ESP32, RegisDesktop) strumieniują do niego audio przez sieć — wymaga sieciowego endpointu.
 
-### Pipeline Przetwarzania Audio (Rozstrzygnięte)
+### Bezpieczeństwo Systemu: RPi5 (opcjonalnie)
 
-Każde żądanie głosowe przechodzi przez następujące etapy — podział pracy między Satelitą a Węzłem Roboczym zależy od możliwości sprzętu:
+RPi5 pełni rolę ostatniej linii obrony gdy system przechodzi w Tryb Awaryjny. Hostuje:
+1. **Parser offline** — lekki model ze Structured Outputs obsługujący proste komendy urządzeń.
+2. **Awaryjny STT** — lekki model Whisper do transkrypcji audio.
+
+RPi5 nie jest wymagany w podstawowym deploymencie na mini PC. Aktywowany wyłącznie gdy brakuje LLM lub Kanału Głosowego.
+
+### Satelity (Cienkie Klienty)
+
+Każde urządzenie interaktywne jest satelitą — rejestruje się w Kontrolerze i strumieniuje audio do Audio Service:
+
+| Satelita | Rola |
+|---|---|
+| **RegisDesktop** | Windows PC użytkownika: VAD, WakeWord lokalne, audio I/O |
+| **ESP32** | Dedykowany sprzęt w domu: VAD, strumieniowanie audio |
+
+### Faza Przejściowa (Aktualny Stan Dev)
+
+Dopóki mini PC nie jest skonfigurowany, RegisDesktop pełni podwójną rolę: satelita + lokalne usługi (Ollama, Faster-Whisper, Piper). Jest to stan tymczasowy. W tej fazie nie ma Audio Service jako osobnego procesu — RegisDesktop dostarcza te usługi bezpośrednio.
+
+### Pipeline Przetwarzania Audio
 
 **Dla ESP32 (ograniczony sprzęt):**
 ```
-[ESP32]                              [Worker Node]
-Cisza
- → VAD wykrywa mowę ludką
- → strumieniuje audio ──────────────→ WakeWord detection
-                                          → brak WakeWord → odrzuć
-                                          → WakeWord! → STT (Whisper)
-                                          → LLM (pętla ReAct + narzędzia)
-                                          → TTS
-                       ←────────────── odpowiedź audio
- → odgrywa odpowiedź
+[ESP32]              [Audio Service]     [Controller]
+VAD wykrywa mowę
+→ stream audio ─────→ WakeWord detection
+                       → brak WakeWord → odrzuć
+                       → WakeWord! → STT (Whisper)
+                       → tekst ────────────────────→ LLM (ReAct + narzędzia)
+                       ←──────────────────────────── odpowiedź tekst
+                     TTS (Piper) → audio
+←────────────────────
+→ odgrywa odpowiedź
 ```
 
-**Dla Desktop PC (pełny sprzęt):**
+**Dla RegisDesktop (pełny sprzęt):**
 ```
-[Desktop Satelita]                   [Worker Node]
-Cisza
- → VAD wykrywa mowę
- → WakeWord detection (lokalnie)
- → przesyła audio ──────────────────→ STT (Whisper) — standaryzacja jakości
-                                        → LLM (pętla ReAct + narzędzia)
-                                        → TTS
-                    ←───────────────── odpowiedź audio
- → odgrywa odpowiedź
+[RegisDesktop]       [Audio Service]     [Controller]
+VAD + WakeWord (lokalnie)
+→ stream audio ─────→ STT (Whisper)
+                       → tekst ────────────────────→ LLM (ReAct + narzędzia)
+                       ←──────────────────────────── odpowiedź tekst
+                     TTS (Piper) → audio
+←────────────────────
+→ odgrywa odpowiedź
 ```
 
-**Kluczowe decyzje projektowe:**
-- **VAD (Voice Activity Detection)** siedzi zawsze na Satelicie — jest to lekki algorytm energetyczny (kilka KB), radykalnie redukuje niepotrzebne strumieniowanie.
-- **WakeWord** na ESP32 jest zbyt kosztowny — siedzi na Węźle Roboczym. Na desktopie może siedzieć lokalnie.
-- **STT zawsze na Węźle Roboczym** — standaryzuje jakość transkrypcji niezależnie od Satelity. Jeden model Whisper = jedna jakość dla wszystkich urządzeń.
+**Kluczowe decyzje projektowe (niezmienione):**
+- VAD zawsze na Satelicie — lekki algorytm energetyczny, radykalnie redukuje niepotrzebne strumieniowanie.
+- WakeWord na ESP32 zbyt kosztowny — delegowany do Audio Service. Na desktopie działa lokalnie.
+- STT zawsze w Audio Service — standaryzuje jakość transkrypcji niezależnie od Satelity.
 
 ---
 
@@ -189,36 +219,35 @@ Przyszłe integracje mogą obejmować m.in.:
 
 ## 3.7 Wizja Docelowa
 
-Cel projektu: **RPi5 jako lekkie, stałe centrum** z chmurą jako domyślnym dostawcą mocy obliczeniowej. Zakup dedykowanego sprzętu (mini PC) nie jest wymagany — architektura skaluje się przez wymianę providerów, nie przez kupowanie sprzętu.
+Cel projektu: **mini PC jako centrum systemu** z chmurą jako domyślnym dostawcą LLM lub Ollamą lokalnie gdy chmura jest droga lub niedostępna.
 
 ```
 ┌──────────────────────────────────────────┐
-│           CENTRUM (RPi5, 24/7)           │
+│           CENTRUM (Mini PC, 24/7)        │
 │                                          │
-│  [Controller]  ←──→  [Parser offline]      │
-│   routing              offline fallback  │
-│   rejestr              STT awaryjny      │
-│   proxy HA                               │
+│  [Controller]  ←──→  [Ollama (LLM)]     │
+│   routing              inference         │
+│   rejestr        ←──→  [Audio Service]  │
+│   proxy HA              STT + TTS        │
 └──────────────────────────────────────────┘
-          ↑              ↑            ↑
-       [ESP32]       [Windows]     [Linux]
-    VAD+stream     VAD+WW+UI      terminal
-               Satelity — cienkie klienty
-                         ↕
-         ┌───────────────────────────────┐
-         │     PROVIDERY (dynamiczne)    │
-         │                               │
-         │  LLM:  OpenRouter / Ollama    │
-         │  STT:  Cloud API / Whisper    │
-         │  TTS:  Cloud API / Piper      │
-         └───────────────────────────────┘
+           ↑                    ↑
+        [ESP32]           [RegisDesktop]
+     VAD+stream            satelita PC
+                          ↕
+          ┌───────────────────────────────┐
+          │     PROVIDERY (dynamiczne)    │
+          │                               │
+          │  LLM:  OpenRouter / Ollama    │
+          │  STT:  Cloud API / Whisper    │
+          │  TTS:  Cloud API / Piper      │
+          └───────────────────────────────┘
 ```
 
 **Kluczowe właściwości docelowego układu:**
-- RPi5 jest zawsze włączony. Hostuje tylko Controller i Parser — nic ciężkiego obliczeniowo.
-- Chmura (OpenRouter + cloud STT/TTS) jest domyślnym providerem — bez zakupu dodatkowego sprzętu.
-- Windows Node rejestruje się jako lokalny provider gdy uruchomiony (dev, emergency). System automatycznie z niego korzysta.
+- Mini PC jest zawsze włączony. Hostuje Controller, Ollama i Audio Service.
+- Chmura (OpenRouter + cloud STT/TTS) jest domyślnym providerem LLM — bez zakupu dodatkowego GPU.
 - Gdy chmura podrożeje lub pojawi się sensowny sprzęt lokalny — podmiana providera nie wymaga zmian w architekturze.
+- RegisDesktop rejestruje się jako satelita głosowa gdy uruchomiony. Nie dostarcza usług LLM/STT/TTS w docelowym produkcie.
 
 ---
 
@@ -259,33 +288,91 @@ Kontroler przechowuje i dystrybuuje:
 
 ## 5. System Providerów i Degradacja
 
-System działa w oparciu o **rejestr providerów** dla trzech krytycznych komponentów. Provider to dowolny serwis zdolny obsłużyć dany komponent — niezależnie od tego czy jest lokalny czy chmurowy. Dla Kontrolera nie ma znaczenia skąd pochodzi provider — tylko czy jest dostępny i zarejestrowany.
+System ma dwa niezależne wymagania o różnych konsekwencjach dla działania:
 
-| Komponent | Przykładowi providerzy | Priorytet między providerami |
+| Komponent | Rola | Konsekwencja braku |
 |---|---|---|
-| **STT** | Cloud Whisper API, lokalny Faster-Whisper (Windows) | Lokalny > Cloud (koszt) |
-| **LLM** | OpenRouter cloud, Ollama lokalnie (Windows) | Cloud > Lokalny (jakość) |
-| **TTS** | Cloud TTS API, lokalny Piper/XTTS (Windows) | Lokalny > Cloud (koszt) |
+| **LLM** | Agent (mózg) — bez niego system nie istnieje jako agent | Tryb Awaryjny: tylko Parser offline |
+| **Kanał Głosowy (STT+TTS)** | Infrastruktura I/O satelitów — przezroczysta konwersja głos↔tekst | Tryb Cichy: agent działa, satelity offline |
 
-### Dwustanowa degradacja
+STT i TTS tworzą razem **Kanał Głosowy** (`voice_channel`). Ich dostępność oceniana jest łącznie: `voice_channel_ready = STT_active AND TTS_active`. Stan częściowy = kanał niedostępny.
 
-System zna tylko dwa stany operacyjne:
+### Model Trzystanowy
 
-**Tryb pełny** — każdy komponent ma przynajmniej jednego dostępnego providera:
+**Tryb Operacyjny Pełny** — LLM i Kanał Głosowy aktywne:
 ```
-STT: [≥1 provider] AND LLM: [≥1 provider] AND TTS: [≥1 provider]
-→ pełny agent ReAct, pełna rozmowa głosowa z TTS
-```
-
-**Tryb fallback** — brakuje providera dla choćby jednego komponentu:
-```
-STT: [0] LUB LLM: [0] LUB TTS: [0]
-→ Parser offline (RPi5, lekki model), tylko proste komendy urządzeń, brak TTS
+LLM: [≥1] AND STT: [≥1] AND TTS: [≥1]
+→ pełny agent ReAct, rozmowa głosowa przez satelity
 ```
 
-Przejście na fallback jest atomowe — system nie operuje w stanach częściowych. Użytkownik zawsze wie w jakim trybie jest system i czego może oczekiwać.
+**Tryb Operacyjny Cichy** — LLM aktywny, Kanał Głosowy niedostępny:
+```
+LLM: [≥1] AND voice_channel: [0]
+→ agent myśli i działa (scheduler, narzędzia, HA)
+→ satelity offline (czerwona dioda), użytkownik nie może inicjować rozmowy głosowej
+```
+
+**Tryb Awaryjny** — brak LLM:
+```
+LLM: [0]
+→ Parser offline (RPi5), tylko proste deterministyczne komendy urządzeń
+```
+
+Przejście między trybami jest atomowe. Użytkownik zawsze wie czego oczekiwać: zielona dioda = tryb pełny, czerwona dioda = brak głosu (agent nadal pracuje autonomicznie), brak reakcji = tryb awaryjny.
 
 **Uwaga architektoniczna:** Parser (RPi5) jest osobnym, zawsze dostępnym mechanizmem bezpieczeństwa — nie jest częścią systemu providerów i nie wymaga rejestracji.
+
+---
+
+## 5.1 Turn Context — Kontekst Tury Agenta
+
+Każde wywołanie agenta niesie ze sobą `TurnContext` — lekki obiekt metadanych opisujący okoliczności tury. Orchestrator buduje go przed wywołaniem agenta i używa do zarządzania pipeline'em pre/post-processing (STT, TTS). Agent otrzymuje go jako część promptu systemowego — dzięki temu wie w jakiej sytuacji się znajduje i może dostosować zachowanie.
+
+### Pola TurnContext
+
+| Pole | Wartości | Opis |
+|---|---|---|
+| `source` | `user` / `scheduler` / `system_event` | Kto wywołał agenta |
+| `satellite_id` | `"esp32-salon"` / `null` | Satelita źródłowa (jeśli user) |
+| `room` | `"salon"` / `null` | Pokój użytkownika (jeśli user) |
+| `input_modality` | `voice` / `text` / `none` | Jak wejście dotarło do agenta |
+| `output_modality` | `voice` / `text` / `silent` | Jak odpowiedź ma być dostarczona |
+| `response_target` | `satellite_id` / `null` | Gdzie wysłać odpowiedź |
+
+### Jak Agent Widzi Kontekst
+
+Orchestrator wstrzykuje opis do promptu systemowego:
+
+```
+[Wywołanie przez użytkownika]
+<turn_context>
+  Wywołanie: użytkownik, satelita ESP32-salon (pokój: Salon)
+  Tryb wyjścia: głosowy — Twoja odpowiedź zostanie odtworzona w pokoju Salon
+</turn_context>
+```
+
+```
+[Wywołanie przez scheduler]
+<turn_context>
+  Wywołanie: scheduler systemowy
+  Tryb wyjścia: brak — odpowiedź nie zostanie odtworzona. Wykonaj działanie i zakończ.
+</turn_context>
+```
+
+### Ujednolicony Pipeline
+
+`TurnContext` sprawia że pipeline jest jeden — różne konfiguracje, ten sam kod:
+
+```
+[Trigger] → [TurnContext]
+          → [Preprocessing: STT jeśli input_modality=voice, pass-through jeśli text/none]
+          → [Agent (LLM, ReAct) — zawsze identyczny, zawsze tekst in/out]
+          → [Postprocessing: TTS→satellite jeśli output_modality=voice, log jeśli silent]
+```
+
+Nie ma osobnych pipeline'ów dla użytkownika i schedulera. Jest jeden pipeline z dynamicznym kontekstem. TurnContext łączy się ze Spatial Context Filtering (§4) — agent dostaje zarówno kontekst przestrzenny (pokój, urządzenia) jak i kontekst interakcji (skąd pochodzi, jak odpowiedzieć).
+
+**Stan Trybu Cichego a TurnContext:** Gdy `voice_channel` jest niedostępny, Orchestrator ustawia `output_modality = silent` dla wszystkich tur — nawet tych wywołanych przez użytkownika (który widzi czerwoną diodę i wie że nie może rozmawiać). Agent wie że jego odpowiedź nie zostanie odtworzona i może dostosować zakres działań.
 
 ---
 
@@ -308,6 +395,7 @@ Regis jako oprogramowanie ma następujące **cele projektowe** — nie są to tw
 ### Implementacja spójności persony między trybami
 - **Konfigurowalny rdzeń persony:** W każdym prompcie, niezależnie od trybu i tieru, osadzony jest opis persony zdefiniowanej przez użytkownika. Tryb pracy (NLU vs ReAct) zmienia się — persona nie.
 - **Graceful Degradation:** Agent nigdy nie udaje, że potrafi czegoś, czego nie potrafi. Odpowiada zwięźle i bez przepraszania. Brak tłumaczeń technicznych.
+- **Zachowanie Konserwatywne (gdy komunikacja niemożliwa):** Jeśli agent nie może skomunikować się z użytkownikiem a działanie wymaga potwierdzenia lub jest potencjalnie inwazyjne — nie wykonuje go. Zapisuje zamiar do późniejszego przypomnienia gdy komunikacja wróci. Działania bezpieczne i nieodwracalnie pozytywne może wykonać bez ogłaszania.
 - **Capability Layer (Warstwa Możliwości):** Prompty pisane są warstwowo. Rdzeń persony jest stały. Zestaw narzędzi i tryb pracy zmienia się w zależności od dostępnych providerów.
 
 ---
@@ -323,7 +411,9 @@ Regis jako oprogramowanie ma następujące **cele projektowe** — nie są to tw
 - **Warstwa abstrakcji LLM (`llm_backends/`)** w Kontrolerze zaimplementowana (`controller/llm_backends/`). OpenRouter i Ollama jako oddzielne backendy z wspólnym interfejsem `LLMBackend`.
 
 **Aktualny dług (oczekuje realizacji):**
+- **Audio Service** — nowy komponent (Python daemon: Faster-Whisper + Piper) do zaimplementowania jako osobny proces na mini PC. Aktualnie jego rolę pełni RegisDesktop (tymczasowo, faza dev). Wymagany do osiągnięcia docelowej architektury z mini PC jako centrum.
+- **Formalne oddzielenie ról RegisDesktop** — podział na "tryb dev" (usługi + satelita) i "tryb prod" (tylko satelita). Wymaga refaktoryzacji RegisDesktop po wdrożeniu Audio Service.
 - **Dystrybucja Windows:** Inno Setup (`RegisNodeSetup.exe`) jest zaprojektowany (`docs/distribution_rfc.md`) ale instalator nie jest jeszcze zbudowany produkcyjnie — patrz `TASKS.md`.
 - **Pamięć Długoterminowa:** Stary system Notatnika wycięty. Nowe rozwiązanie (np. wektorowe) nie zostało jeszcze zaprojektowane — patrz `TASKS.md`.
-- **System Providerów (STT/TTS):** Warstwa abstrakcji dla STT i TTS nie jest jeszcze zaimplementowana. Aktualny kod wymaga Windows Node do lokalnej obsługi audio. Implementacja cloud STT/TTS bez Windows Node wymaga osobnej sesji — patrz `TASKS.md` (`[ARCH — Phase 2]`).
-- **Formalne interfejsy warstwy 2:** Abstrakcyjne interfejsy `ILLMProvider`, `ISTTProvider`, `ITTSProvider`, `ISatellite` istnieją jako koncepcja architektoniczna (§3.1) — nie są jeszcze sformalizowane jako klasy bazowe w kodzie. Implementacja jest częścią `[ARCH — Phase 2]`.
+- **System Providerów (STT/TTS):** Warstwa abstrakcji dla STT i TTS nie jest jeszcze zaimplementowana jako formalne klasy bazowe w kodzie. Implementacja jest częścią `[ARCH — Phase 2]`.
+- **Formalne interfejsy warstwy 2:** Abstrakcyjne interfejsy `ILLMProvider`, `ISTTProvider`, `ITTSProvider`, `ISatellite` istnieją jako koncepcja architektoniczna (§3.1) — nie są jeszcze sformalizowane jako klasy bazowe w kodzie.

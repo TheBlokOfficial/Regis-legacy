@@ -107,6 +107,11 @@ Poniższe decyzje były świadomie przemyślane i rozstrzygnięte. Propozycja ic
 | Dystrybucja Windows = Inno Setup Installer + Python systemowy (nie PyInstaller) | PyInstaller odrzucony: black box, podejrzany wygląd, opóźnienia startu. Szczegóły: `docs/distribution_rfc.md` |
 | `worker` na RPi5 hostuje Parser offline i awaryjny STT — nie jest production LLM workerem | RPi5 pełni rolę centrum bezpieczeństwa (last resort). Produkcyjny LLM pochodzi od providera (cloud lub Windows Node). |
 | **Trójwarstwowy model architektury: Core / Providers & Channels / Integrations** | Rozstrzygnięta decyzja filozoficzna (sesja 2026-08-07). Core = pętla ReAct + abstrakcyjne interfejsy. Warstwa 2 = wymienna cybernetyka (LLM, STT, TTS, satelity). Warstwa 3 = narzędzia (HA, web, itp.). Granice warstw są twarde — nie mieszaj implementacji między warstwami. |
+| **LLM stoi wyżej w hierarchii niż STT/TTS — nie traktuj ich jako równorzędnych komponentów** | LLM = agent (mózg systemu). STT/TTS = Kanał Głosowy (niższy poziom abstrakcji, wymagany interfejs użytkownika). Traktowanie wszystkich trzech jako równych byłoby błędem strukturalnym. Sesja 2026-08-10. |
+| **STT i TTS tworzą logiczny bundle "Kanał Głosowy" — oceniane razem, nie osobno** | `voice_channel_ready = STT_active AND TTS_active`. Stan częściowy (STT bez TTS lub odwrotnie) = kanał niedostępny. Nie ma stanu "słyszę, ale nie mówię" — niszczy spójność doświadczenia. Sesja 2026-08-10. |
+| **RegisDesktop w finalnym produkcie = satelita only. Usługi LLM/STT/TTS → mini PC** | Centrum systemu to mini PC hostujący Controller + Ollama + Audio Service. RegisDesktop nie jest wymagany jako dostawca usług — pełni wyłącznie rolę satelity głosowej na Windows. Sesja 2026-08-10. |
+| **Controller rozmawia z Ollamą bezpośrednio przez HTTP — bez wrappera** | Ollama jest zewnętrznym daemonem HTTP (`localhost:11434`). Dodatkowy wrapper = zbędna warstwa złożoności. Controller pozostaje lekki. Sesja 2026-08-10. |
+| **Audio Service = osobny proces (Faster-Whisper + Piper) na mini PC** | Satelity strumieniują audio przez sieć → wymagany sieciowy endpoint HTTP → nie może być wbudowany w Controller. Separacja utrzymuje Controller jako lekki daemon. Sesja 2026-08-10. |
 
 ---
 

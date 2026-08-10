@@ -1,6 +1,21 @@
 # Lista Zadań Projektu Regis (TASKS)
 
-## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Przeprojektowanie Architektury Informacji Kart i Kontrastu Pulpitu)
+## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Przebudowa Architektury i Dokumentów Fundamentowych)
+
+- [x] **Hierarchia LLM vs STT/TTS i Pojęcie Kanału Głosowego (`docs/MANIFEST.md` §3.0 & §5)**:
+  - Ustalono, że LLM jest agentem (mózgiem, najwyższy poziom), a STT i TTS tworzą **Kanał Głosowy** (infrastrukturę I/O na niższym poziomie abstrakcji, nie narzędzia w ToolRegistry).
+- [x] **Trójstanowy Model Degradacji (`docs/MANIFEST.md` §5)**:
+  - Zaimplementowano podział na: Operacyjny Pełny (LLM + mowa), Operacyjny Cichy (LLM aktywny, mowa offline - satelity z czerwoną diodą), Awaryjny (brak LLM - parser RPi5).
+- [x] **Ujednolicony Pipeline & TurnContext (`docs/MANIFEST.md` §5.1)**:
+  - Wdrożono koncepcję obiektu `TurnContext` przenoszącego metadane tury (`source`, `room`, `input_modality`, `output_modality`, `response_target`) do promptu agenta.
+- [x] **Redefinicja Roli RegisDesktop i Architektura Mini PC (`docs/MANIFEST.md` §3.2 & §3.5)**:
+  - Zdefiniowano, że w docelowym produkcie RegisDesktop to wyłącznie satelita głosowa Windows, a Mini PC hostuje 3 procesy (Controller, Ollama HTTP, Audio Service HTTP).
+- [x] **Zachowanie Konserwatywne Agenta (`docs/MANIFEST.md` §6)**:
+  - Zapisano regułę wstrzymywania i logowania inwazyjnych działań w przypadku braku możliwości komunikacji z użytkownikiem.
+- [x] **Aktualizacja Przewodnika i Listy Zadań (`docs/AGENT_GUIDE.md` & `.agents/TASKS.md`)**:
+  - Wpisano 5 nowych decyzji architektonicznych do AGENT_GUIDE.md oraz 2 nowe zadania architektoniczne do TASKS.md (`Audio Service`, `Rozdzielenie ról RegisDesktop`).
+
+
 
 - [x] **Podbicie Kontrastu i Design Systemu (`src/controller/web/css/tokens.css` & `css/components.css`)**:
   - Zwiększono jasność `--text-dim` do `#888888` oraz wprowadzono `--text-secondary: #a1a1aa`.
@@ -215,3 +230,8 @@
   - Mechanizm odroczonych "szturchnięć" agenta. Niezaprojektowany, wymaga sesji architektonicznej.
 - [ ] **Docker Deployment** `[DIST]`:
   - Cel dystrybucyjny: Regis jako obraz Docker na mini PC.
+- [ ] **Audio Service** `[ARCH]`:
+  - Nowy komponent (Python daemon: Faster-Whisper + Piper) na mini PC, osobny proces nasłuchujący na HTTP. Aktualnie rolę tę pełni RegisDesktop (tymczasowo). Wymagany do osiągnięcia docelowej architektury. Decyzja z sesji 2026-08-10.
+- [ ] **Formalne oddzielenie ról RegisDesktop** `[ARCH]`:
+  - Podział RegisDesktop na "tryb dev" (usługi + satelita) i "tryb prod" (tylko satelita). Wymaga wdrożenia Audio Service jako prerequisite. Decyzja z sesji 2026-08-10.
+
