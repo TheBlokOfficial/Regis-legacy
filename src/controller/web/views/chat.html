@@ -1,0 +1,45 @@
+<!-- ZAKŁADKA: CHAT -->
+<section id="view-chat" class="view-section" style="display:none; flex-direction:column; position:relative; overflow:hidden;">
+    <div class="chat-main-container">
+        <div id="chat-messages" class="chat-messages-body">
+            <!-- Renderowane dynamicznie w chat.js -->
+        </div>
+    </div>
+
+    <!-- PRAWY PANEL INSPEKTORA DEBUGGOWEGO (Z-INDEX 100 OVERLAY) -->
+    <aside id="chat-inspector-panel" class="chat-inspector-panel">
+        <div class="inspector-header">
+            <div class="inspector-title-group">
+                <span class="inspector-badge" id="inspector-badge">tool</span>
+                <h3 class="inspector-title" id="inspector-title">Szczegóły Wykonania Narzędzia</h3>
+            </div>
+            <button type="button" class="btn-close-inspector" id="btn-close-inspector" aria-label="Zamknij">✕</button>
+        </div>
+        <div class="inspector-content">
+            <div class="inspector-section">
+                <div class="inspector-section-label">Parametry Wejściowe (Input Payload)</div>
+                <pre class="inspector-code-block" id="inspector-input-code">{}</pre>
+            </div>
+            <div class="inspector-section">
+                <div class="inspector-section-label">Wynik Kontrolera (Output Result)</div>
+                <pre class="inspector-code-block" id="inspector-output-code">{}</pre>
+            </div>
+        </div>
+    </aside>
+
+    <div class="chat-bottom-dock">
+        <div class="session-segmented-control" id="chat-session-pills">
+            <button class="session-pill active" data-value="web_ui" data-room="">
+                <svg class="icon-svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"/></svg>
+                Web UI
+            </button>
+        </div>
+        
+        <form id="chat-form" class="chat-input-bar">
+            <div class="chat-input-capsule">
+                <input type="text" id="chat-input" placeholder="Wpisz wiadomość do Regisa... (Enter)" autocomplete="off">
+                <button type="submit" id="chat-send-btn" class="btn btn-send-pill">Wyślij</button>
+            </div>
+        </form>
+    </div>
+</section>

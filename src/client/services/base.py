@@ -14,6 +14,10 @@ class BaseService:
     def __init__(self, service_name: str, config_class: Type[BaseModel], config_obj: BaseModel | None = None):
         self.service_name = service_name
         
+        # Wyciszenie głośnych loggerów HTTP w podprocesach workerów
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+        logging.getLogger("httpcore").setLevel(logging.WARNING)
+        
         if config_obj is None:
             raw_config = os.environ.get("SERVICE_CONFIG")
             if raw_config:

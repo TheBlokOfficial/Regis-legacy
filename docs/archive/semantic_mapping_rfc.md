@@ -1,3 +1,6 @@
+> [!NOTE]
+> **Dokument archiwalny.** RFC aliasów semantycznych — Opcja 1 (skondensowane aliasy) wdro¿ona w `config/aliases.json`. Opcje 2-3 nie s¹ planowane.
+
 # Semantic Room Mapping & Hierarchical Memory (RFC)
 
 ## Problem

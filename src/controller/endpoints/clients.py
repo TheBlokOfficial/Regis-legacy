@@ -17,6 +17,7 @@ from controller.messages import (
     PlayAudioMessage,
     PauseSatelliteMessage,
     ResumeSatelliteMessage,
+    SendClientCommandMessage,
     ClientCommandResultMessage,
     SatelliteEventMessage,
     ClientUpdatedMessage,
@@ -81,8 +82,7 @@ async def send_client_command(client_id: str, command: str, payload: dict) -> di
     if not client:
         raise HTTPException(status_code=404, detail=f"Klient '{client_id}' nie jest zarejestrowany.")
 
-    success = await client_manager.send_command(client_id, command, payload)
-    if not success:
+    if not client_manager.is_connected(client_id):
         error_msg = f"Klient {client_id} jest nieosiągalny (brak aktywnego połączenia WebSocket)."
         logging.warning(f"[Clients] Komenda '{command}' do klienta '{client_id}' nie powiodła się: {error_msg}")
         await message_bus.publish(ClientCommandResultMessage(
@@ -93,7 +93,13 @@ async def send_client_command(client_id: str, command: str, payload: dict) -> di
         ))
         raise HTTPException(status_code=502, detail=error_msg)
 
-    logging.info(f"[Clients] Komenda '{command}' wysłana do klienta '{client_id}' przez WS.")
+    await message_bus.publish(SendClientCommandMessage(
+        client_id=client_id,
+        command=command,
+        data=payload
+    ))
+
+    logging.info(f"[Clients] Opublikowano komendę '{command}' dla klienta '{client_id}' na MessageBus.")
     return {"status": "pending", "client_id": client_id, "command": command}
 
 
@@ -145,12 +151,7 @@ async def update_client_config(client_id: str, body: ClientConfigRequest):
     _save_persistent_clients(persistent_configs)
 
     if client_id in client_registry.client_registry:
-        # Wysyłamy do klienta tylko konfigurację operacyjną usług (bez metadanych Kontrolera typu room)
-        success = await client_manager.send_command(client_id, "config", {
-            "name": new_name,
-            "services": new_services,
-        })
-        if not success:
+        if not client_manager.is_connected(client_id):
             persistent_configs[client_id] = current_profile
             _save_persistent_clients(persistent_configs)
             logging.warning(f"Nie udało się wysłać konfiguracji przez WS do Klienta {client_id}. Zmiany wycofane.")
@@ -158,6 +159,16 @@ async def update_client_config(client_id: str, body: ClientConfigRequest):
                 status_code=502,
                 detail=f"Klient {client_id} jest nieosiągalny (brak połączenia WebSocket). Nie można zaaplikować konfiguracji."
             )
+
+        # Wysyłamy komendę konfiguracji przez MessageBus
+        await message_bus.publish(SendClientCommandMessage(
+            client_id=client_id,
+            command="config",
+            data={
+                "name": new_name,
+                "services": new_services,
+            }
+        ))
 
         client_registry.client_registry[client_id]["name"] = new_name
         client_registry.client_registry[client_id]["room"] = new_room
@@ -354,6 +365,10 @@ async def _on_pause_satellite(msg: PauseSatelliteMessage):
 async def _on_resume_satellite(msg: ResumeSatelliteMessage):
     await client_manager.send_command(msg.client_id, "satellite_control", {"action": "resume"})
 
+async def _on_send_client_command(msg: SendClientCommandMessage):
+    await client_manager.send_command(msg.client_id, msg.command, msg.data or {})
+
 message_bus.subscribe(PlayAudioMessage, _on_play_audio)
 message_bus.subscribe(PauseSatelliteMessage, _on_pause_satellite)
 message_bus.subscribe(ResumeSatelliteMessage, _on_resume_satellite)
+message_bus.subscribe(SendClientCommandMessage, _on_send_client_command)

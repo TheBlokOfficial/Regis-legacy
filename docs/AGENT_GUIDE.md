@@ -165,7 +165,7 @@ Lista błędów, które agenty popełniają regularnie w tym projekcie:
 6. **Refaktoryzacja bez zgody** — zmiana struktury kodu wymaga planu i akceptacji, nie jest "przy okazji".
 7. **Ignorowanie hardcode'owanych adresów IP** — są świadomie tymczasowe. Nie "naprawiaj" ich bez polecenia.
 8. **Mieszanie warstw architektury** — implementowanie konkretnego providera (np. Whisper, OpenRouter) bezpośrednio w Core zamiast przez interfejs (`ISTTProvider`, `ILLMProvider`) jest błędem architektonicznym. Analogicznie: narzędzie integracyjne (np. wywołanie HA API) nie może siedzieć w Core — należy do `integrations/`. Każda warstwa zna tylko interfejsy warstwy wyżej, nigdy konkretne implementacje.
-9. **Brak izolacji przy tworzeniu konfiguracji** — architektura znajduje się obecnie w trakcie ewolucji z powodu długu dystrybucyjnego. Scentralizowane pliki z `data/` (jak `settings.json`) powodują konflikty podczas deploymentu i są wycofywane na rzecz specyficznych profili (`settings.<PROFILE>.json`) lub lokalnych zmiennych `.env`. Zapoznaj się z raportem `docs/architectural_debt_report.md` zanim zaczniesz rzeźbić w ogólnej konfiguracji.
+9. **Brak izolacji przy tworzeniu konfiguracji** — nie używaj scentralizowanego `settings.json` dla wszystkich ról. Konfiguracja jest izolowana przez profile (`settings.<PROFILE>.json`) lub lokalne zmienne `.env` z `ACTIVE_PROFILE`. Kontroler i Node mają rozdzielone konfiguracje — nie mieszaj ich.
 
 ---
 

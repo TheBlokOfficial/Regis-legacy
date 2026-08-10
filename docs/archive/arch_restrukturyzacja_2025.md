@@ -1,3 +1,7 @@
+> [!NOTE]
+> **Dokument archiwalny.** Plan restrukturyzacji do dwóch us³ug (controller + 
+ode) — zrealizowany w sesjach 2026-07/08. Kod istnieje w `src/controller/` i `src/node/`.
+
 # Dokument Architektoniczny: Restrukturyzacja Regis do DwÃ³ch UsÅ‚ug
 
 > **Ten dokument jest instrukcjÄ… dla agenta implementujÄ…cego.** Opisuje decyzje podjÄ™te

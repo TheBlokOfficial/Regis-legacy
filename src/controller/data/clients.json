@@ -1,10 +1,11 @@
 {
   "node-b521068e": {
     "name": "desktop-rtx5070",
+    "room": "",
     "services": {
-      "satellite": {
-        "wakeword_threshold": 0.65,
-        "silence_timeout_ms": 1500
+      "ollama_worker": {
+        "model_name": "qwen3.5:9b",
+        "priority": 100
       },
       "stt_worker": {
         "stt_model_size": "small",
@@ -13,8 +14,14 @@
       "tts_worker": {
         "tts_model_name": "pl_PL-darkman-medium"
       },
-      "ollama_worker": {
-        "model_name": "qwen3.5:9b"
+      "satellite": {
+        "node_type": "desktop",
+        "capabilities": [
+          "audio_input",
+          "tts_output",
+          "wakeword"
+        ],
+        "wakeword_local": true
       }
     }
   }

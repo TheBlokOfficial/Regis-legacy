@@ -1,0 +1,389 @@
+/* =========================================================
+   Regis — Panel Kontrolny | chat.css
+   Linia czasu konwersacji, pigułki i zintegrowany pasek inputu.
+   ========================================================= */
+
+#view-chat {
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.chat-bottom-dock {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 32px 24px;
+    background: var(--bg);
+    flex-shrink: 0;
+}
+
+.session-segmented-control {
+    align-self: center;
+    display: flex;
+    align-items: center;
+    background: #141414;
+    border: 1px solid #27272a;
+    border-radius: 8px;
+    padding: 3px;
+    gap: 3px;
+}
+
+.session-pill {
+    background: transparent;
+    border: none;
+    color: #888888;
+    padding: 6px 14px;
+    font-size: 13.5px;
+    font-family: inherit;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.session-pill svg,
+.suggestion-chip svg {
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+
+.session-pill:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.session-pill.active {
+    background: #27272a;
+    color: #ffffff;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.chat-hero-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: auto 0;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.hero-icon {
+    font-size: 38px;
+    margin-bottom: 12px;
+    opacity: 0.9;
+}
+
+.hero-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: #ffffff;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+}
+
+.hero-subtitle {
+    font-size: 14px;
+    color: #888888;
+    margin-bottom: 28px;
+}
+
+.hero-suggestions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.suggestion-chip {
+    background: #18181b;
+    color: #d4d4d8;
+    border: 1px solid #27272a;
+    border-radius: 20px;
+    padding: 8px 18px;
+    font-size: 13.5px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.suggestion-chip:hover {
+    background: #27272a;
+    color: #ffffff;
+    border-color: #3f3f46;
+}
+
+.chat-messages-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 48px max(32px, calc((100% - 860px) / 2)) 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    mask-image: linear-gradient(to bottom, transparent 0px, black 48px, black calc(100% - 24px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 48px, black calc(100% - 24px), transparent 100%);
+}
+
+.msg-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 100%;
+    gap: 4px;
+}
+
+.msg-wrapper.user { align-self: stretch; }
+.msg-wrapper.assistant { align-self: stretch; }
+
+/* Karta komendy użytkownika (Soft Pill) */
+/* Karta komendy użytkownika (Soft Pill - Stonowana typografia) */
+/* Karta komendy użytkownika (Soft Pill - Stonowana typografia 15px) */
+.msg-user-card {
+    background: #1c1c1c;
+    border: none;
+    border-radius: 12px;
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+}
+
+.msg-user-text {
+    font-size: 15px;
+    color: #ececed;
+    font-weight: 400;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.msg-user-meta {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-family: var(--font);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Treść odpowiedzi agenta (Ujednolicona czcionka 15px z użytkownikiem) */
+.msg-assistant-content {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #ececed;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 6px 20px;
+}
+
+.msg-meta { display: none; }
+
+.chat-input-bar {
+    padding: 0;
+    background: transparent;
+    border-top: none;
+}
+
+.chat-input-capsule {
+    display: flex;
+    align-items: center;
+    background: #141414;
+    border: 1px solid #27272a;
+    border-radius: 12px;
+    padding: 5px 6px 5px 16px;
+    transition: border-color 0.15s ease;
+    width: 100%;
+}
+
+.chat-input-capsule:focus-within {
+    border-color: #3f3f46;
+}
+
+.chat-input-capsule input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 15.5px;
+    font-family: inherit;
+    outline: none;
+    padding: 8px 0;
+}
+
+.chat-input-capsule input::placeholder {
+    color: #666666;
+}
+
+.btn-send-pill {
+    background: #27272a;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    flex-shrink: 0;
+}
+
+.btn-send-pill:hover {
+    background: #3f3f46;
+}
+
+.chat-main-container {
+    display: flex;
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+}
+
+/* Wsuwany po prawej stronie Panel Inspektora Debuggowego (Pełne Nakładanie Z-Index 100) */
+.chat-inspector-panel {
+    position: absolute;
+    top: 0;
+    right: -420px;
+    width: 400px;
+    height: 100%;
+    background: #141414;
+    border-left: 1px solid #27272a;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    transition: right 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.5);
+}
+
+.chat-inspector-panel.open {
+    right: 0;
+}
+
+.inspector-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #27272a;
+    background: #18181b;
+}
+
+.inspector-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.inspector-badge {
+    font-size: 11px;
+    font-family: var(--font);
+    background: #27272a;
+    color: #a1a1aa;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: lowercase;
+    align-self: flex-start;
+}
+
+.inspector-title {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: #ffffff;
+    margin: 0;
+}
+
+.btn-close-inspector {
+    background: transparent;
+    border: none;
+    color: #888888;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: color 0.15s ease;
+}
+
+.btn-close-inspector:hover {
+    color: #ffffff;
+}
+
+.inspector-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.inspector-section-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #888888;
+    margin-bottom: 8px;
+}
+
+.inspector-code-block {
+    background: #09090b;
+    border: 1px solid #27272a;
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 12.5px;
+    font-family: var(--font);
+    color: #d4d4d8;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: auto;
+    max-height: 320px;
+    margin: 0;
+}
+
+/* Styl linii akcji narzędzia (Wzór z Antigravity: Hover Pill) */
+.msg-wrapper.assistant-tools {
+    align-self: stretch;
+    padding: 3px 20px;
+}
+
+.tool-call-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13.5px;
+    color: #888888;
+}
+
+.tool-line-icon {
+    color: #666666;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.tool-chip-pill {
+    background: transparent;
+    border: none;
+    color: #888888;
+    padding: 3px 8px;
+    font-size: 13.5px;
+    font-family: inherit;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.tool-chip-pill:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+}

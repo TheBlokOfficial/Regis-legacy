@@ -153,7 +153,7 @@ async def handle_user_spoke(text: str, sender: str):
 
                     t_tool_start = time.time()
                     try:
-                        tool_result_raw = app_state.tools_registry.execute_tool(function_name, args_dict)
+                        tool_result_raw = await asyncio.to_thread(app_state.tools_registry.execute_tool, function_name, args_dict)
                         tool_result = json.dumps(tool_result_raw, ensure_ascii=False) if not isinstance(tool_result_raw, str) else tool_result_raw
                     except Exception as exc:
                         logger.error(f"Błąd narzędzia '{function_name}': {exc}")

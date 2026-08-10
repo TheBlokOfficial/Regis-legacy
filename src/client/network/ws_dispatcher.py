@@ -18,7 +18,7 @@ def set_wake_check_callback(callback: Callable[[bool], None] | None) -> None:
 
 
 async def _cmd_config(payload: dict) -> dict:
-    apply_service_config(payload, from_registration=True)
+    apply_service_config(payload, from_registration=False)
     return {"success": True}
 
 
@@ -44,7 +44,7 @@ async def handle_ws_message(ws: Any, message: str) -> None:
             return
 
         if data.get("type") == "config":
-            apply_service_config(data.get("data", {}), from_registration=True)
+            apply_service_config(data.get("data", {}), from_registration=False)
             return
             
         ws_cmd = WSCommand(**data)

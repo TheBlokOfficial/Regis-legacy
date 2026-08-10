@@ -1,3 +1,6 @@
+> [!NOTE]
+> **Dokument archiwalny.** RFC protoko³u Zero-Conf UDP Broadcast — zaimplementowane w `src/controller/core/discovery.py`.
+
 # RFC: Auto-Discovery (Zero-Conf) i Generowanie Konfiguracji
 
 ## 1. Opis Problemu

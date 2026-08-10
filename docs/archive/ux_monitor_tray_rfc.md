@@ -1,3 +1,6 @@
+> [!NOTE]
+> **Dokument archiwalny.** Plan Monitora Konwersacji i Traya — Etap 1 (monitor SSE) i Etap 2 (Web UI) zrealizowane. Zachowany jako dokumentacja decyzji UX.
+
 # Plan Implementacji: Monitor Konwersacji i Refaktoryzacja Traya
 
 ## Kontekst i cel

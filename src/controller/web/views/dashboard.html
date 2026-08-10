@@ -1,0 +1,63 @@
+<!-- ZAKŁADKA 1: DASHBOARD -->
+<section id="view-dashboard" class="view-section active">
+    <div class="view-header">
+        <h2>Pulpit Systemu</h2>
+    </div>
+    <div class="status-grid">
+        <div class="status-card">
+            <span class="label">Uptime</span>
+            <span class="value" id="uptime">—</span>
+        </div>
+        <div class="status-card">
+            <span class="label">Aplikacje Klienckie</span>
+            <span class="value" id="worker-count">0</span>
+        </div>
+        <div class="status-card">
+            <span class="label">Satelity</span>
+            <span class="value" id="satellite-count">0</span>
+        </div>
+        <div class="status-card">
+            <span class="label">Integracje</span>
+            <span class="value" id="integration-count">0</span>
+        </div>
+    </div>
+    
+    <div class="dashboard-grid">
+        <!-- Kolumna 1: Aplikacje Klienckie -->
+        <div class="dashboard-col">
+            <div>
+                <div class="view-header" style="padding-bottom: 8px; margin-bottom: 16px;">
+                    <h2 style="font-size: 18px;">Klienci (RegisDesktop)</h2>
+                </div>
+                <div class="list-container" id="nodes-tree-body">
+                    <div class="empty-state">Brak zarejestrowanych klientów.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kolumna 2: Dostawcy Zewnętrzni -->
+        <div class="dashboard-col">
+            <div>
+                <div class="view-header" style="padding-bottom: 8px; margin-bottom: 16px;">
+                    <h2 style="font-size: 18px;">Dostawcy Zewnętrzni (LLM)</h2>
+                    <button class="btn" id="add-cloud-provider-btn" style="margin-left: auto; font-size: 13px;">+ Dodaj</button>
+                </div>
+                <div class="list-container" id="cloud-providers-tree-body">
+                    <div class="empty-state">Brak dostawców chmurowych.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kolumna 3: Integracje -->
+        <div class="dashboard-col">
+            <div>
+                <div class="view-header" style="padding-bottom: 8px; margin-bottom: 16px;">
+                    <h2 style="font-size: 18px;">Integracje</h2>
+                </div>
+                <div class="list-container" id="integrations-tree-body">
+                    <div class="empty-state">Brak skonfigurowanych integracji.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

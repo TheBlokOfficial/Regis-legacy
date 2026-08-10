@@ -177,16 +177,15 @@ Mapowanie przyjaznych nazw na `entity_id` HA.
 
 ## `docs/` — Dokumentacja Projektu
 
-| Plik | Zawartość |
+| Plik / Katalog | Zawartość |
 |---|---|
 | `MANIFEST.md` | **Czytaj jako pierwszy.** Wizja, filozofia, rozstrzygnięte decyzje projektowe. |
 | `AGENT_GUIDE.md` | Instrukcja dla agentów AI pracujących w projekcie. |
 | `ONBOARDING.md` | Ten plik. Mapa kodu i struktury. |
-| `arch_restrukturyzacja_2025.md` | Plan restrukturyzacji do dwóch usług (sesja 2026-07-23). |
-| `distribution_rfc.md` | Decyzja o nowym systemie dystrybucji Windows (Inno Setup, porzucenie PyInstallera). |
-| `auto_discovery_rfc.md` | Specyfikacja protokołu Zero-Conf UDP Broadcast. |
-| `ux_monitor_tray_rfc.md` | Plan implementacji Monitora konwersacji i refaktoryzacji traya (3 etapy). |
-| `architectural_debt_report.md` | Historyczny raport długu architektonicznego (już rozwiązany). |
+| `PROMPT_ENGINEERING.md` | Baza wiedzy o prompt engineeringu dla modeli Qwen 2.5 (ReAct, few-shot, sandwiching). |
+| `rfc/` | **Aktywne RFC i backlog** — plany funkcji jeszcze niezrealizowanych (`distribution_rfc.md`, `hierarchical_subagents_rfc.md`, `llm_providers_rfc.md`, `context_invalidation_rfc.md`). |
+| `knowledge/` | **Biblioteka wiedzy** — case studies i diagnozy konkretnych problemów inżynieryjnych (ReAct, pamięć, tool calling). Patrz `knowledge/README.md`. |
+| `archive/` | Zrealizowane RFC i przestarzałe dokumenty — zachowane jako kontekst historyczny. |
 
 ---
 

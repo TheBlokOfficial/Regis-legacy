@@ -1,0 +1,41 @@
+/* =========================================================
+   Regis — Panel Kontrolny | tokens.css
+   Zmienne CSS, paleta kolorów i natywny reset.
+   ========================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+    --bg:          #0f0f0f;
+    --bg-card:     #161616;
+    --bg-card-alt: #1c1c1c;
+    --border:      #2a2a2a;
+    --border-light:#3a3a3a;
+    --text:        #e0e0e0;
+    --text-dim:    #555;
+    --text-meta:   #888;
+    --online:      #4caf4c;
+    --offline:     #c0392b;
+    --btn:         #242424;
+    --btn-hover:   #333333;
+    --btn-danger:  #3a1212;
+    --btn-danger-hover: #4a1818;
+    --font:        'IBM Plex Mono', 'Courier New', monospace;
+    --radius:      4px;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 19.5px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}

@@ -68,6 +68,14 @@ class ClearHistoryMessage:
     satellite_id: str | None = None
 
 
+@dataclass(frozen=True)
+class SendClientCommandMessage:
+    """Komenda nakazująca wysłanie polecenia przez WebSocket do zarejestrowanego Klienta."""
+    client_id: str
+    command: str
+    data: dict | None = None
+
+
 # =============================================================================
 # 3. ZDARZENIA SIECIOWE I CYKL ŻYCIA KLIENTÓW (CLIENT LIFECYCLE & NETWORK)
 # =============================================================================

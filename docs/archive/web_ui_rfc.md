@@ -1,3 +1,6 @@
+> [!NOTE]
+> **Dokument archiwalny.** RFC Web UI — zrealizowane. Kod w `src/controller/web/`. Zawiera decyzje architektoniczne (SSE, Vanilla JS, brak frameworków).
+
 # RFC: Reaktywny Web UI dla Regisa
 
 **Data:** 2026-08-01  

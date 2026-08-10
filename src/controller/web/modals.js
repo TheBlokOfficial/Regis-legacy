@@ -32,10 +32,14 @@ export async function openClientConfigModal(nodeId) {
         supportedModelsCache = await fetchSupportedModels();
     }
 
-    const selectEl = document.getElementById("modal-worker-model");
-    selectEl.innerHTML = supportedModelsCache.map(m =>
-        `<option value="${m.id}">${m.name} (${m.id})</option>`
-    ).join('');
+    const datalistEl = document.getElementById("suggested-models-list");
+    if (datalistEl) {
+        datalistEl.innerHTML = supportedModelsCache.map(m =>
+            `<option value="${m.id}">${m.name || m.id}</option>`
+        ).join('');
+    }
+
+    const modelInputEl = document.getElementById("modal-worker-model");
 
     const cfg = await fetchNodeConfig(nodeId);
     const services = (cfg && cfg.services) || {};
@@ -48,8 +52,10 @@ export async function openClientConfigModal(nodeId) {
     document.getElementById("modal-enable-ollama").checked = hasOllama;
     document.getElementById("ollama-config-fields").style.display = hasOllama ? "block" : "none";
     if (ollamaCfg) {
-        if (ollamaCfg.model_name) selectEl.value = ollamaCfg.model_name;
+        if (ollamaCfg.model_name && modelInputEl) modelInputEl.value = ollamaCfg.model_name;
         document.getElementById("modal-worker-priority").value = ollamaCfg.priority ?? 100;
+    } else if (modelInputEl) {
+        modelInputEl.value = "qwen3.5:9b";
     }
 
     // 2. STT Worker
