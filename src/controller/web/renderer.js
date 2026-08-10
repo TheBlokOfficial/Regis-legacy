@@ -47,7 +47,7 @@ export function renderIntegrationCard(integration) {
         <span class="dot ${status}"></span>
         <div class="list-info">
             <span class="list-title">${escHtml(name)}</span>
-            <span class="list-meta">(${escHtml(type)}) ${escHtml(detail)}</span>
+            <span class="list-meta">${escHtml(type)} • ${escHtml(detail)}</span>
         </div>
         <div class="list-actions">
             <span class="badge ${status}">${badgeText}</span>
@@ -96,29 +96,32 @@ export function renderNodeCard(node) {
     const isDict = typeof services === 'object' && !Array.isArray(services);
 
     let tagsHtml = '';
+    const clientTitle = name.startsWith("desktop-") ? "Regis Desktop" : name;
 
     const ollamaConfig = isDict ? (services.ollama_worker || services.worker) : (Array.isArray(services) && services.includes("worker") ? node : null);
     if (ollamaConfig) {
-        const model = ollamaConfig.model_name || node.model_name || "qwen3.5:9b";
-        tagsHtml += `<span class="service-tag">LLM (${escHtml(model)})</span> `;
+        const model = ollamaConfig.model_name || node.model_name || "qwen2.5:7b";
+        tagsHtml += `<span class="service-tag">LLM: ${escHtml(model)}</span>`;
     }
 
     const sttConfig = isDict ? services.stt_worker : null;
     if (sttConfig) {
         const sttSize = sttConfig.stt_model_size || "small";
-        tagsHtml += `<span class="service-tag">STT (${escHtml(sttSize)})</span> `;
+        tagsHtml += `<span class="service-tag">STT: Whisper (${escHtml(sttSize)})</span>`;
     }
 
     const ttsConfig = isDict ? services.tts_worker : null;
     if (ttsConfig) {
         const ttsModel = ttsConfig.tts_model_name || "piper";
-        tagsHtml += `<span class="service-tag">TTS (${escHtml(ttsModel)})</span> `;
+        tagsHtml += `<span class="service-tag">TTS: Piper</span>`;
     }
 
     const satConfig = isDict ? services.satellite : (Array.isArray(services) && services.includes("satellite") ? node : null);
     if (satConfig) {
-        const room = satConfig.room || node.room || "brak";
-        tagsHtml += `<span class="service-tag">SAT (${escHtml(room)})</span>`;
+        const room = satConfig.room || node.room;
+        if (room && room !== "brak") {
+            tagsHtml += `<span class="service-tag">Satelita: ${escHtml(room)}</span>`;
+        }
     }
 
     card.id = `node-${id}`;
@@ -127,11 +130,10 @@ export function renderNodeCard(node) {
         <span class="dot online"></span>
         <div class="list-info">
             <div class="list-title-group">
-                <span class="list-title">${escHtml(name)}</span>
-                <span class="node-chip">${escHtml(id)}</span>
+                <span class="list-title">${escHtml(clientTitle)}</span>
             </div>
-            <span class="list-meta">Host: ${escHtml(host)}</span>
-            <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">${tagsHtml}</div>
+            <span class="list-meta">Adres: ${escHtml(host)} • Połączony</span>
+            <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">${tagsHtml}</div>
         </div>
         <div class="list-actions">
             <button class="btn btn-ghost" id="btn-config-${id}">
@@ -177,12 +179,12 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
                     <span class="dot online"></span>
                     <div class="list-info">
                         <div class="list-title-group">
-                            <span class="list-title">${escHtml(cp.id)}</span>
-                            <span class="node-chip">Chmura (${escHtml(cp.type)})</span>
+                            <span class="list-title">${escHtml(cp.model)}</span>
                         </div>
-                        <span class="list-meta">Model: ${escHtml(cp.model)}</span>
+                        <span class="list-meta">Dostawca: ${escHtml(cp.id)} (${escHtml(cp.type)})</span>
                     </div>
                     <div class="list-actions">
+                        <span class="badge online" style="margin-right:4px;">Chmura</span>
                         <button class="btn btn-ghost btn-edit-cp" data-id="${escHtml(cp.id)}">Edytuj</button>
                     </div>
                 </div>
@@ -191,16 +193,15 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
 
         (llmWorkers || []).forEach(w => {
             totalCount++;
-            const modelName = w.model_name || "qwen3.5:9b";
+            const modelName = w.model_name || "qwen2.5:7b";
             html += `
                 <div class="list-row">
                     <span class="dot online"></span>
                     <div class="list-info">
                         <div class="list-title-group">
-                            <span class="list-title">Ollama</span>
-                            <span class="node-chip">${escHtml(w.id)}</span>
+                            <span class="list-title">${escHtml(modelName)}</span>
                         </div>
-                        <span class="list-meta">RegisDesktop (${escHtml(w.host)}) • Model: ${escHtml(modelName)}</span>
+                        <span class="list-meta">Silnik: Ollama • Regis Desktop</span>
                     </div>
                     <div class="list-actions">
                         <span class="badge online">Lokalny</span>
@@ -222,10 +223,9 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
                     <span class="dot online"></span>
                     <div class="list-info">
                         <div class="list-title-group">
-                            <span class="list-title">Faster-Whisper</span>
-                            <span class="node-chip">${escHtml(a.id)}</span>
+                            <span class="list-title">Faster-Whisper (${escHtml(sttSize)})</span>
                         </div>
-                        <span class="list-meta">RegisDesktop (${escHtml(a.host)}) • Rozmiar: ${escHtml(sttSize)}</span>
+                        <span class="list-meta">Silnik: Whisper • Transkrypcja mowy</span>
                     </div>
                     <div class="list-actions">
                         <span class="badge online">Lokalny</span>
@@ -247,10 +247,9 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
                     <span class="dot online"></span>
                     <div class="list-info">
                         <div class="list-title-group">
-                            <span class="list-title">Piper</span>
-                            <span class="node-chip">${escHtml(a.id)}</span>
+                            <span class="list-title">Piper (${escHtml(ttsModel)})</span>
                         </div>
-                        <span class="list-meta">RegisDesktop (${escHtml(a.host)}) • Głos: ${escHtml(ttsModel)}</span>
+                        <span class="list-meta">Silnik: Piper • Synteza głosu</span>
                     </div>
                     <div class="list-actions">
                         <span class="badge online">Lokalny</span>
@@ -309,17 +308,26 @@ export function renderSatellitesList(satellites = []) {
 
     container.innerHTML = satellites.map(sat => {
         const id = sat.id || "brak";
-        const room = sat.room || "brak";
+        const room = sat.room && sat.room !== "brak" ? sat.room : "";
         const type = sat.type || "desktop";
+        
+        let title = "Satelita Głosowa";
+        if (type === "desktop") {
+            title = room ? `Mikrofon Desktop (${room})` : "Mikrofon Desktop";
+        } else if (room) {
+            title = `Satelita (${room})`;
+        }
+
+        const typeLabel = type === "desktop" ? "Aplikacja Desktop" : `Urządzenie ${type.toUpperCase()}`;
+
         return `
             <div class="list-row satellite-card" id="sat-card-${escHtml(id)}">
                 <span class="dot online"></span>
                 <div class="list-info">
                     <div class="list-title-group">
-                        <span class="list-title">Satelita</span>
-                        <span class="node-chip">${escHtml(id)}</span>
+                        <span class="list-title">${escHtml(title)}</span>
                     </div>
-                    <span class="list-meta">Pokój: ${escHtml(room)} • Typ: ${escHtml(type)}</span>
+                    <span class="list-meta">${escHtml(typeLabel)} • Strumień Audio</span>
                 </div>
                 <div class="list-actions">
                     <span class="vad-status" id="vad-${escHtml(id)}">Cisza</span>

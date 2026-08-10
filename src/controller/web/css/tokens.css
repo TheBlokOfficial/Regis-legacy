@@ -12,8 +12,9 @@
     --border:      #27272a;
     --border-light:#3f3f46;
     --text:        #ffffff;
-    --text-dim:    #666666;
-    --text-meta:   #888888;
+    --text-secondary:#a1a1aa;
+    --text-dim:    #888888;
+    --text-meta:   #a1a1aa;
     --online:      #4caf4c;
     --offline:     #e07070;
     --btn:         #27272a;

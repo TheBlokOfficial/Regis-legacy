@@ -3,22 +3,23 @@
 **Data sesji**: 2026-08-10
 
 ## 1. Co Zostało Wykonane w Ostatniej Sesji
-- **Pełna Refaktoryzacja UX/UI Pulpitu Systemu (Dashboard 2.0 / Bento Grid)**:
-  - Przebudowano układ w [src/controller/web/views/dashboard.html](file:///d:/Projekty/Regis/src/controller/web/views/dashboard.html) oraz [src/controller/web/css/layout.css](file:///d:/Projekty/Regis/src/controller/web/css/layout.css) na dwukolumnowy, asymetryczny układ Bento Grid (~60% / 40%).
-  - Lewa szeroka kolumna (~640px) pomieściła *Zmysły & Dostawców* oraz *Aplikacje Klienckie*, co wyeliminowało ciasnotę horyzontalną i łamanie nazw urządzeń/modeli (np. `b521068e)`).
-  - Prawa kolumna (~440px) pomieściła *Satelity* oraz *Integracje*, likwidując asymetrię i poszarpany "efekt schodkowy".
-- **Eliminacja Szumu Wizualnego, Emotikonów i Ramkowości**:
-  - Usunięto kiczowate emotikony emoji ze wszystkich nagłówków sekcji w [src/controller/web/renderer.js](file:///d:/Projekty/Regis/src/controller/web/renderer.js).
-  - Zlikwidowano podwójne zagnieżdżenia ramek w [src/controller/web/css/components.css](file:///d:/Projekty/Regis/src/controller/web/css/components.css) na rzecz architektur bezramkowej.
-  - Zastąpiono krzykliwe etykiety CAPS LOCK (`LOKALNY`, `ONLINE`, `CISZA`, `KONFIGURUJ`) estetycznymi pigułkami (`Lokalny`, `Online`, `Cisza`) i lekkimi przyciskami `.btn-ghost` (`Konfiguruj`, `Edytuj`).
-- **Wdrożenie Bannera Gotowości Stanu Pustego (Empty Readiness Banner)**:
-  - W sekcji Zmysłów wdrożono komponent `.empty-banner` informujący użytkownika o pracy w `TRYBIE FALLBACK` oraz podpowiadający natychmiastowe kroki aktywacji (uruchomienie `RegisDesktop` lub podłączenie OpenRouter API).
-- **Naprawa Reaktywności SSE Bez Potrzeby F5**:
-  - Utworzono funkcję `refreshDashboardStatus()` w [src/controller/web/api.js](file:///d:/Projekty/Regis/src/controller/web/api.js) i podłączono ją pod SSE w [src/controller/web/events.js](file:///d:/Projekty/Regis/src/controller/web/events.js) dla zdarzeń `client_registered`, `client_unregistered` i `client_updated`.
-  - Rozłączenie klienta lub zmiana usługi natychmiast aktualizuje karty w przeglądarce w ułamku sekundy na żywo bez ręcznego klikania F5.
+- **Refaktoryzacja UX/UI i Architektury Informacji Pulpitu Systemu (Dashboard 2.0)**:
+  - **Podbicie Kontrastu Typografii ([css/tokens.css](file:///d:/Projekty/Regis/src/controller/web/css/tokens.css) & [css/components.css](file:///d:/Projekty/Regis/src/controller/web/css/components.css))**:
+    - Zwiększono jasność `--text-dim` do `#888888` oraz wprowadzono `--text-secondary: #a1a1aa`.
+    - Podbito wyrazistość opisu banneru fallback, stanów pustych oraz nagłówków podsekcji zmysłów.
+  - **Separatory Zmysłów i Podbicie Przycisków ([css/components.css](file:///d:/Projekty/Regis/src/controller/web/css/components.css))**:
+    - Dodano subtelne horyzontalne separatory z delikatnym obrysem `border-top` i `border-bottom` w `.category-subhead`.
+    - Poprawiono kontrast i obrys przycisków `.btn-ghost` (`Konfiguruj`, `+ Dodaj Chmurę`).
+  - **Dopasowanie Layoutu i Stopki ([css/layout.css](file:///d:/Projekty/Regis/src/controller/web/css/layout.css))**:
+    - Dodano dolny padding w `.sidebar-footer`, wyeliminowano przyklejenie wskaźnika statusu `• połączono` do dolnej krawędzi ekranu.
+  - **Nowa Architektura Informacji Kart ([src/controller/web/renderer.js](file:///d:/Projekty/Regis/src/controller/web/renderer.js))**:
+    - **Zmysły & Dostawcy (`renderProvidersList`)**: Wyeliminowano potrójny natłok surowych GUID (`node-160100de`) i adresów IP. Wysunięto na pierwszy plan czytelne nazwy modeli (`qwen3.5:9b`, `Faster-Whisper (small)`, `Piper (pl_PL-darkman-medium)`).
+    - **Aplikacje Klienckie (`renderNodeCard`)**: Naprawiono błąd `ReferenceError: name is not defined`, usunięto surowe skróty `SAT (brak)` i wdrożono czystą siatkę pigułek usług (`LLM: qwen3.5:9b`, `STT: Whisper (small)`, `TTS: Piper`).
+    - **Satelity (`renderSatellitesList`)**: Zastąpiono słowo *"Satelita"* tożsamościami urządzeń (np. *Mikrofon Desktop*).
+    - **Integracje (`renderIntegrationCard`)**: Ujednolicono podtytuł w formacie `Smart Home • Sterowanie urządzeniami & encjami`.
 
-## 2. Aktualny Stan Kodu & Architektury
-- Frontend Pulpitu w [src/controller/web/](file:///d:/Projekty/Regis/src/controller/web/) jest w 100% spójny stylistycznie z Design Systemem widoku czatu, przestrzega zasad ascetycznej estetyki projektu (`MANIFEST.md`, `AGENTS.md`) i płynnie reaguje na komunikaty SSE.
+## 2. Aktualny Stan Kodu & Architektura
+- Widok Pulpitu jest w 100% spójny z Design Systemem, nie posiada szumu informacyjnego, GUID ani potrójnych adresów IP.
 - Wszystkie testy jednostkowe `pytest tests/test_llm_backends.py` przechodzą w 100% (10/10).
 
 ## 3. Kroki Startowe Dla Następnego Agenta

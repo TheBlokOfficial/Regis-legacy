@@ -1,5 +1,20 @@
 # Lista Zadań Projektu Regis (TASKS)
 
+## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Przeprojektowanie Architektury Informacji Kart i Kontrastu Pulpitu)
+
+- [x] **Podbicie Kontrastu i Design Systemu (`src/controller/web/css/tokens.css` & `css/components.css`)**:
+  - Zwiększono jasność `--text-dim` do `#888888` oraz wprowadzono `--text-secondary: #a1a1aa`.
+  - Podbito wyrazistość opisu banneru fallback, stanów pustych oraz nagłówków podsekcji zmysłów.
+- [x] **Separatory Zmysłów i Podbicie Przycisków (`src/controller/web/css/components.css`)**:
+  - Dodano horyzontalne separatory w `.category-subhead` z obrysem `border-top` i `border-bottom`.
+  - Poprawiono widoczność i kontrast przycisków `.btn-ghost` (`Konfiguruj`, `+ Dodaj Chmurę`).
+- [x] **Korekta Layoutu Sidebaru (`src/controller/web/css/layout.css`)**:
+  - Dodano dolny padding w `.sidebar-footer`, likwidując przyklejenie wskaźnika statusu `• połączono` do dolnej krawędzi okna.
+- [x] **Przeprojektowanie Architektura Informacji Kart (`src/controller/web/renderer.js`)**:
+  - **Zmysły & Dostawcy**: Usunięto natłok surowych GUID (`node-160100de`) i potrójnych IP. Wyeksponowano na pierwszym planie nazwy modeli (`qwen3.5:9b`, `Faster-Whisper (small)`, `Piper`).
+  - **Aplikacje Klienckie**: Naprawiono błąd `ReferenceError: name is not defined`, usunięto surowe skróty `SAT (brak)` i wdrożono czystą siatkę pigułek usług (`LLM: qwen3.5:9b`, `STT: Whisper (small)`, `TTS: Piper`).
+  - **Satelity & Integracje**: Zastąpiono generyczne słowo *"Satelita"* tożsamościami urządzeń (np. *Mikrofon Desktop*).
+
 ## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Asymetryczny Bento Grid, Reaktywność SSE i Audyt UI/UX Pulpitu)
 
 - [x] **Asymetryczny Layout Bento Grid (~60% / 40%) (`src/controller/web/views/dashboard.html` & `css/layout.css`)**:
