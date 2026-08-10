@@ -1,5 +1,18 @@
 # Lista Zadań Projektu Regis (TASKS)
 
+## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Dashboard 2.0 i Refaktoryzacja UX Pulpitu)
+
+- [x] **Pulpit Systemu (Dashboard 2.0) wg Architektury 3-Warstwowej (`src/controller/web/views/dashboard.html`)**:
+  - Przebudowano układ Pulpitu na 4 czytelne sekcje funkcjonalne (*Zmysły & Dostawcy*, *Satelity*, *Integracje*, *Aplikacje Klienckie RegisDesktop*).
+- [x] **Rozdzielenie Usług RegisDesktop w UI (`src/controller/web/renderer.js` & `api.js`)**:
+  - Wyciągnięto mikrousługi z aplikacji `RegisDesktop` (Ollama, Faster-Whisper, Piper, Satelita) i umieszczono je w ich odpowiednich sekcjach funkcjonalnych Zmysłów i Satelitów.
+- [x] **Centrum Sterowania Węzłami RegisDesktop (`src/controller/web/views/dashboard.html`)**:
+  - Zachowano dedykowaną sekcję zarządczą dla połączonych instancji `RegisDesktop` z przyciskiem `[KONFIGURUJ]` otwierającym modal sterowania podprocesami.
+- [x] **Wskaźnik Dwustanowej Degradacji (`src/controller/web/renderer.js` & `css/components.css`)**:
+  - Wdrożono odznakę `badge-readiness` sygnalizującą stan `TRYB PEŁNY (ReAct)` vs `TRYB FALLBACK (Offline NLU)`.
+- [x] **Rozszerzenie Snapshotu REST (`src/controller/endpoints/system.py`)**:
+  - Dodano do `GET /api/status` statystyki zmysłów (`llm_count`, `stt_count`, `tts_count`) oraz flagę `full_mode`.
+
 ## Rejestr Zrealizowanych Zadań (Sesja 2026-08-09 - Naprawa Asynchroniczności SSE & Kolejkowania Wyników)
 
 - [x] **Asynchroniczne Wykonywanie Narzędzi (`src/controller/orchestrator.py`)**:

@@ -148,6 +148,28 @@
 .badge.offline { color: var(--offline); border: 1px solid var(--offline); }
 .badge.unknown { color: var(--text-dim); border: 1px solid var(--border); }
 
+.badge-readiness {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    letter-spacing: 0.04em;
+}
+.badge-readiness.full-mode {
+    border-color: var(--online);
+    color: var(--online);
+    background: rgba(34, 197, 94, 0.08);
+}
+.badge-readiness.fallback-mode {
+    border-color: #eab308;
+    color: #eab308;
+    background: rgba(234, 179, 8, 0.08);
+}
+
 /* ── Przyciski ── */
 .btn {
     font-family: var(--font);

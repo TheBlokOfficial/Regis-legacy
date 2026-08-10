@@ -1,26 +1,25 @@
 # Regis Project Handoff
 
-**Data sesji**: 2026-08-09 / 2026-08-10
+**Data sesji**: 2026-08-10
 
 ## 1. Co Zostało Wykonane w Ostatniej Sesji
-- **Wdrożenie Architektury Split View dla Wywołań Narzędzi**:
-  - Przebudowano główny strumień czatu i dodano wysuwany prawy panel inspektora debuggowego (`#chat-inspector-panel`) z `z-index: 100` ([views/chat.html](file:///d:/Projekty/Regis/src/controller/web/views/chat.html), [chat.css](file:///d:/Projekty/Regis/src/controller/web/css/chat.css)).
-- **Friendly Action Resolver & Wzór z Google Antigravity**:
-  - Wyeliminowano surowe nazwy `snake_case` (`execute_action`, `get_device_state`) i nawiasy `(wynik)` z czatu na rzecz przyjaznych polskich opisów (np. `⚡ Wykonanie akcji: turn_on na light.pracownia_glowna ↗`).
-  - Zastosowano bezramkowy wiersz akcji z pigułką reagującą na najechanie myszką (`hover pill` 1:1 z Antigravity). Kliknięcie otwiera pełen panel inspektora JSON.
-- **Ujednolicenie Typografii Konwersacji**:
-  - Zapytania użytkownika (`.msg-user-text`) oraz odpowiedzi agenta (`.msg-assistant-content`) mają dokładnie ten sam ujednolicony krój `15px` (`#ececed`), zachowując pionowe wyrównanie z lewej strony (20px).
-- **Naprawa Asynchroniczności SSE & Kolejkowania Wyników**:
-  - Przeniesiono blokujące wykonanie narzędzi `app_state.tools_registry.execute_tool` na `await asyncio.to_thread(...)` w [orchestrator.py](file:///d:/Projekty/Regis/src/controller/orchestrator.py), dzięki czemu opóźnienia sieciowe Home Assistanta nie blokują pętli zdarzeń SSE FastAPI.
-  - Zastąpiono pojedynczą zmienną śledzącą kolejką FIFO `pendingToolChips` w [chat.js](file:///d:/Projekty/Regis/src/controller/web/chat.js), gwarantując bezbłędne przypisywanie wyników narzędzi.
-- **Analiza TTS & Formatowania Markdown / Typografii Unicode**:
-  - Zdiagnozowano przyczynę braku syntezy mowy Piper TTS dla dłuższego tekstu: powodem były surowe znaki formatowania Markdown (`**`, `-`) oraz półpauza Unicode `–` (`\u2013`). Ustalono plan rozwiązania (prompt systemowy + funkcja oczyszczająca w przyszłości).
+- **Wdrożenie Architektury Pulpitu Systemu (Dashboard 2.0)**:
+  - Przestawiono pulpit w [src/controller/web/views/dashboard.html](file:///d:/Projekty/Regis/src/controller/web/views/dashboard.html) z podziału opartego na „źródle instalacji” na czysty podział według **ról funkcjonalnych w architekturze 3-warstwowej**.
+  - Zgrupowano dostawców zmysłów w Sekcji *Zmysły & Dostawcy* w 3 podkategorie: 🧠 **LLM (Mózg)**, 👂 **STT (Słuch)**, 🗣️ **TTS (Mowa)** — łącząc w jednym miejscu dostawców chmurowych oraz usługi lokalne z `RegisDesktop`.
+  - Utworzono Sekcję *Satelity (Kanały We/Wy)* dla punktów komunikacji z człowiekiem (ESP32, widżety audio, czat) oraz Sekcję *Integracje (Warstwa 3)*.
+  - Dedykowano osobną sekcję *Aplikacje Klienckie (RegisDesktop)* jako centrum sterowania i konfiguracji połączonych komputera Windows (`[KONFIGURUJ]`).
+- **Wskaźnik Dwustanowej Degradacji Systemu**:
+  - Wdrożono dynamiczną odznakę gotowości (`badge-readiness`) informującą o stanie pracy: `TRYB PEŁNY (ReAct)` vs `TRYB FALLBACK (Offline NLU)`.
+- **Rozszerzenie REST Snapshotu (`src/controller/endpoints/system.py`)**:
+  - Rozbudowano `GET /api/status` o zliczenia zmysłów (`llm_count`, `stt_count`, `tts_count`), listę pracowników audio i stan `full_mode`.
+- **Aktualizacja Logiki Renderującej (`src/controller/web/renderer.js` & `api.js`)**:
+  - Przebudowano funkcje `renderProvidersList()`, `renderSatellitesList()`, `updateSystemReadiness()` oraz inicjalizację REST i ticker SSE.
 
 ## 2. Aktualny Stan Kodu & Architektury
-- Frontend czatu w [src/controller/web/](file:///d:/Projekty/Regis/src/controller/web/) jest w 100% zrefaktoryzowany, zachowując stonowany, ascetyczny wygląd bez kiczowatych emotikonów.
-- Pętle orkiestratora i strumieniowanie SSE działają nieblokująco. Testy jednostkowe `pytest tests/test_llm_backends.py` przechodzą 10/10.
+- Frontend Pulpitu w [src/controller/web/](file:///d:/Projekty/Regis/src/controller/web/) jest w 100% zrefaktoryzowany pod architekturę 3-warstwową Regisa.
+- Testy jednostkowe `pytest tests/test_llm_backends.py` przechodzą w 100% (10/10).
 
 ## 3. Kroki Startowe Dla Następnego Agenta
 1. Przeczytaj pliki w obowiązkowej kolejności startowej (`docs/MANIFEST.md`, `docs/AGENT_GUIDE.md`, `.agents/HANDOFF.md`, `.agents/TASKS.md`).
 2. Sprawdź testy: `pytest tests/test_llm_backends.py`.
-3. Jeżeli użytkownik zechce wdrożyć filtry czyszczące tekst dla TTS przed wywołaniem Pipera, zrealizuj funkcję `clean_text_for_speech` usuwającą znaki Markdown oraz Unicode En-Dash/Em-Dash przed `synthesize_speech`.
+3. Dalsze prace w zależności od priorytetów użytkownika z `.agents/TASKS.md`.

@@ -153,39 +153,153 @@ export function renderNodeCard(node) {
     }
 }
 
-// ── Dostawcy Chmurowi (LLM) ───────────────────────────────────────────────
+// ── Zmysły & Dostawcy (LLM, STT, TTS) ───────────────────────────────────────
+
+export async function renderProvidersList(cloudProviders = [], llmWorkers = [], audioWorkers = []) {
+    const container = document.getElementById("providers-tree-body");
+    if (!container) return;
+
+    let html = '';
+    let totalCount = 0;
+
+    // 1. Sekcja LLM (Mózg)
+    const hasLlm = (cloudProviders && cloudProviders.length > 0) || (llmWorkers && llmWorkers.length > 0);
+    if (hasLlm) {
+        html += `<div style="padding: 8px 16px; font-size: 13px; font-weight: 600; color: var(--text-meta); background: var(--bg-card-alt); border-bottom: 1px solid var(--border);">🧠 MODEL JĘZYKOWY (LLM)</div>`;
+        
+        (cloudProviders || []).forEach(cp => {
+            totalCount++;
+            html += `
+                <div class="list-row">
+                    <span class="dot online"></span>
+                    <div class="list-info">
+                        <span class="list-title">${escHtml(cp.id)}</span>
+                        <span class="list-meta">Chmura (${escHtml(cp.type)}) | Model: ${escHtml(cp.model)}</span>
+                    </div>
+                    <div class="list-actions">
+                        <button class="btn btn-edit-cp" data-id="${escHtml(cp.id)}" style="font-size: 13px;">EDYTUJ</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        (llmWorkers || []).forEach(w => {
+            totalCount++;
+            const modelName = w.model_name || "qwen3.5:9b";
+            html += `
+                <div class="list-row">
+                    <span class="dot online"></span>
+                    <div class="list-info">
+                        <span class="list-title">Ollama (${escHtml(w.id)})</span>
+                        <span class="list-meta">RegisDesktop (${escHtml(w.host)}) | Model: ${escHtml(modelName)}</span>
+                    </div>
+                    <div class="list-actions">
+                        <span class="badge online">LOKALNY</span>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    // 2. Sekcja STT (Słuch)
+    const sttWorkers = (audioWorkers || []).filter(a => a.stt_model_size || a.services?.stt_worker);
+    if (sttWorkers.length > 0) {
+        html += `<div style="padding: 8px 16px; font-size: 13px; font-weight: 600; color: var(--text-meta); background: var(--bg-card-alt); border-bottom: 1px solid var(--border);">👂 TRANSKRYPCJA MOWY (STT)</div>`;
+        sttWorkers.forEach(a => {
+            totalCount++;
+            const sttSize = a.stt_model_size || "small";
+            html += `
+                <div class="list-row">
+                    <span class="dot online"></span>
+                    <div class="list-info">
+                        <span class="list-title">Faster-Whisper (${escHtml(a.id)})</span>
+                        <span class="list-meta">RegisDesktop (${escHtml(a.host)}) | Rozmiar: ${escHtml(sttSize)}</span>
+                    </div>
+                    <div class="list-actions">
+                        <span class="badge online">LOKALNY</span>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    // 3. Sekcja TTS (Mowa)
+    const ttsWorkers = (audioWorkers || []).filter(a => a.tts_model_name || a.services?.tts_worker);
+    if (ttsWorkers.length > 0) {
+        html += `<div style="padding: 8px 16px; font-size: 13px; font-weight: 600; color: var(--text-meta); background: var(--bg-card-alt); border-bottom: 1px solid var(--border);">🗣️ SYNTEZA MOWY (TTS)</div>`;
+        ttsWorkers.forEach(a => {
+            totalCount++;
+            const ttsModel = a.tts_model_name || "piper";
+            html += `
+                <div class="list-row">
+                    <span class="dot online"></span>
+                    <div class="list-info">
+                        <span class="list-title">Piper (${escHtml(a.id)})</span>
+                        <span class="list-meta">RegisDesktop (${escHtml(a.host)}) | Głos: ${escHtml(ttsModel)}</span>
+                    </div>
+                    <div class="list-actions">
+                        <span class="badge online">LOKALNY</span>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    if (!html) {
+        container.innerHTML = '<div class="empty-state">Brak skonfigurowanych dostawców zmysłów.</div>';
+    } else {
+        container.innerHTML = html;
+        container.querySelectorAll('.btn-edit-cp').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const providerId = btn.getAttribute('data-id');
+                openCloudProviderModal(providerId);
+            });
+        });
+    }
+
+    const countEl = document.getElementById("providers-count");
+    if (countEl) countEl.textContent = totalCount;
+}
 
 export async function renderCloudProvidersList() {
     const cloudProviders = await fetchCloudProviders();
     setCloudProvidersCache(cloudProviders);
+    renderProvidersList(cloudProviders, [], []);
+}
 
-    const container = document.getElementById("cloud-providers-tree-body");
+// ── Satelity (Kanały We/Wy) ────────────────────────────────────────────────
+
+export function renderSatellitesList(satellites = []) {
+    const container = document.getElementById("satellites-tree-body");
     if (!container) return;
 
-    if (!cloudProviders || cloudProviders.length === 0) {
-        container.innerHTML = '<div class="empty-state">Brak skonfigurowanych dostawców chmurowych.</div>';
+    if (!satellites || satellites.length === 0) {
+        container.innerHTML = '<div class="empty-state">Brak zarejestrowanych satelitów.</div>';
+        const satCountEl = document.getElementById("satellite-count");
+        if (satCountEl) satCountEl.textContent = "0";
         return;
     }
 
-    container.innerHTML = cloudProviders.map(cp => `
-        <div class="list-row">
-            <span class="list-icon">[EXT]</span>
-            <div class="list-info">
-                <span class="list-title">${escHtml(cp.id)}</span>
-                <span class="list-meta">(${escHtml(cp.type)}) Model: ${escHtml(cp.model)} | Prio: ${escHtml(String(cp.priority || 50))}</span>
+    container.innerHTML = satellites.map(sat => {
+        const id = sat.id || "brak";
+        const room = sat.room || "brak";
+        const type = sat.type || "desktop";
+        return `
+            <div class="list-row satellite-card" id="sat-card-${escHtml(id)}">
+                <span class="dot online"></span>
+                <div class="list-info">
+                    <span class="list-title">Satelita (${escHtml(id)})</span>
+                    <span class="list-meta">Pokój: ${escHtml(room)} | Typ: ${escHtml(type)}</span>
+                </div>
+                <div class="list-actions">
+                    <span class="vad-status" id="vad-${escHtml(id)}">CISZA</span>
+                </div>
             </div>
-            <div class="list-actions">
-                <button class="btn btn-edit-cp" data-id="${escHtml(cp.id)}" style="font-size: 13px;">EDYTUJ</button>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 
-    container.querySelectorAll('.btn-edit-cp').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const providerId = btn.getAttribute('data-id');
-            openCloudProviderModal(providerId);
-        });
-    });
+    const satCountEl = document.getElementById("satellite-count");
+    if (satCountEl) satCountEl.textContent = satellites.length;
 }
 
 export function renderWorkerCard(worker) {
@@ -193,7 +307,7 @@ export function renderWorkerCard(worker) {
 }
 
 export function renderSatelliteCard(sat) {
-    renderNodeCard(sat);
+    // Odświeżenie listy satelitów
 }
 
 export function markWorkerOffline(id) {
@@ -204,7 +318,10 @@ export function markWorkerOffline(id) {
 }
 
 export function markSatelliteOffline(id) {
-    markWorkerOffline(id);
+    const card = document.getElementById(`sat-card-${id}`);
+    if (!card) return;
+    const dot = card.querySelector(".dot");
+    if (dot) dot.className = "dot offline";
 }
 
 export function updateSatelliteVAD(satId, eventType) {
@@ -223,6 +340,22 @@ export function updateSatelliteVAD(satId, eventType) {
     } else if (eventType === "vad_silence") {
         el.textContent = "CISZA";
         el.className   = "vad-status";
+    }
+}
+
+// ── Stan Gotowości Systemu (System Readiness) ───────────────────────────────
+
+export function updateSystemReadiness(ctrlInfo = {}) {
+    const badge = document.getElementById("system-readiness-badge");
+    if (!badge) return;
+
+    const fullMode = ctrlInfo.full_mode !== false;
+    if (fullMode) {
+        badge.className = "badge-readiness full-mode";
+        badge.innerHTML = `<span class="dot online"></span> TRYB PEŁNY (ReAct)`;
+    } else {
+        badge.className = "badge-readiness fallback-mode";
+        badge.innerHTML = `<span class="dot offline"></span> TRYB FALLBACK (Offline NLU)`;
     }
 }
 

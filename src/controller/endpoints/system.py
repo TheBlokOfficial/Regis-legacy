@@ -21,7 +21,7 @@ router_system = APIRouter()
 
 
 async def get_status_snapshot() -> dict:
-    """Zwraca aktualny stan systemu: węzły, satelity, integracje, info o Kontrolerze."""
+    """Zwraca aktualny stan systemu: węzły, satelity, integracje, zmysły, info o Kontrolerze."""
     uptime_s = int(time.time() - state.controller_start_time)
 
     integrations = []
@@ -37,17 +37,30 @@ async def get_status_snapshot() -> dict:
 
     clients = list(client_registry.client_registry.values())
     workers = client_registry.get_llm_clients()
+    audio_workers = client_registry.get_audio_clients()
     satellites = client_registry.get_satellite_clients()
+
+    llm_count = len(workers)
+    stt_count = sum(1 for a in audio_workers if "stt_model_size" in a or "audio" in a)
+    tts_count = sum(1 for a in audio_workers if "tts_model_name" in a or "audio" in a)
+    
+    # Tryb pełny: przynajmniej 1 LLM (cloud/local)
+    full_mode = llm_count > 0
 
     return {
         "nodes": clients,  # Klucze zachowane dla kompatybilności z UI
         "clients": clients,
         "workers": workers,
+        "audio_workers": audio_workers,
         "satellites": satellites,
         "integrations": integrations,
         "controller": {
             "uptime_s": uptime_s,
             "ha_status": ha_status,
+            "full_mode": full_mode,
+            "llm_count": llm_count,
+            "stt_count": stt_count,
+            "tts_count": tts_count
         }
     }
 

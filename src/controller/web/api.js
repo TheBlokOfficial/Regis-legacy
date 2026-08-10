@@ -8,7 +8,15 @@
  */
 
 import { upsertWorker, upsertSatellite, workers, satellites } from './state.js';
-import { renderWorkerCard, renderSatelliteCard, renderIntegrationsList, updateHAStatus, appendLog } from './renderer.js';
+import { 
+    renderNodeCard, 
+    renderSatellitesList, 
+    renderProvidersList, 
+    renderIntegrationsList, 
+    updateHAStatus, 
+    updateSystemReadiness,
+    appendLog 
+} from './renderer.js';
 import { handleEvent } from './events.js';
 import { fmtUptime, fmtTime } from './utils.js';
 
@@ -21,8 +29,11 @@ export async function init() {
         const resp = await fetch("/api/status");
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
+        const cloudProviders = await fetchCloudProviders().catch(() => []);
 
         const ctrl = data.controller || {};
+        updateSystemReadiness(ctrl);
+
         if (data.integrations && data.integrations.length > 0) {
             renderIntegrationsList(data.integrations);
         } else {
@@ -34,6 +45,15 @@ export async function init() {
             document.getElementById("uptime").textContent = fmtUptime(_currentUptimeS);
         }
 
+        // Renderowanie zmysłów (Providers)
+        renderProvidersList(cloudProviders, data.workers || [], data.audio_workers || []);
+
+        // Renderowanie satelitów (Satellites)
+        renderSatellitesList(data.satellites || []);
+
+        // Renderowanie klientów (RegisDesktop Nodes)
+        const nodesBody = document.getElementById("nodes-tree-body");
+        if (nodesBody) nodesBody.innerHTML = "";
         (data.clients || []).forEach(c => {
             const clientData = { ...c, status: "online" };
             if (c.services && (c.services.worker || c.services.ollama_worker)) {
@@ -42,8 +62,7 @@ export async function init() {
             if (c.services && c.services.satellite) {
                 upsertSatellite(clientData);
             }
-            // renderNodeCard obsługuje każdy rodzaj klienta i dodaje mu odpowiednie tagi usług
-            renderWorkerCard(clientData); 
+            renderNodeCard(clientData); 
         });
 
         _startUptimeTicker();
@@ -69,7 +88,11 @@ function _startUptimeTicker() {
     setInterval(async () => {
         try {
             const data = await fetch("/api/status").then(r => r.json());
+            const cloudProviders = await fetchCloudProviders().catch(() => []);
             const ctrl = data.controller || {};
+
+            updateSystemReadiness(ctrl);
+
             if (ctrl.uptime_s !== undefined) {
                 _currentUptimeS = ctrl.uptime_s;
                 document.getElementById("uptime").textContent = fmtUptime(_currentUptimeS);
@@ -79,6 +102,10 @@ function _startUptimeTicker() {
             } else {
                 updateHAStatus(ctrl.ha_status || "unknown");
             }
+
+            renderProvidersList(cloudProviders, data.workers || [], data.audio_workers || []);
+            renderSatellitesList(data.satellites || []);
+
         } catch (_) {}
     }, 15_000);
 }
