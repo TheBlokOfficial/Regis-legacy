@@ -22,7 +22,6 @@ import controller.core.message_bus as message_bus
 from controller.messages import ClientUnregisteredMessage
 import controller.agent.session.store as session_store
 import controller.agent.session.manager as session_manager
-import controller.providers.audio.service as audio_service
 import controller.orchestrator as orchestrator
 from controller.config import loader as config
 from controller.config.schemas import SystemSettings

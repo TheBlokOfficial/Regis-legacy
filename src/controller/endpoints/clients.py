@@ -111,22 +111,28 @@ class AudioServiceRegisterRequest(BaseModel):
     stt_model_size: str = "small"
     tts_model_name: str = "pl_PL-darkman-medium"
 
+    @property
+    def base_url(self) -> str:
+        return f"http://{self.host}:{self.port}"
+
 
 @router_clients.post("/v1/audio/register")
 @router_clients.post("/v1/clients/audio_ping")
 async def register_audio_service(req: AudioServiceRegisterRequest):
     """Rejestracja/Heartbeat dla stacjonarnego daemona Audio Service w ProviderRegistry."""
     import controller.core.provider_registry as provider_registry
+    from controller.providers.audio.backends import AudioServiceSTTBackend, AudioServiceTTSBackend
+
     client_id = req.id
     is_new = client_id not in client_registry.client_registry
-    
-    # 1. Zapis w rejestrze pomocniczym
+
+    # 1. Zapis w rejestrze klientów (metadane)
     client_registry.client_registry[client_id] = {
         "id": client_id,
         "name": req.name,
         "host": req.host,
         "port": req.port,
-        "base_url": f"http://{req.host}:{req.port}",
+        "base_url": req.base_url,
         "services": {
             "stt_worker": {"stt_model_size": req.stt_model_size, "port": req.port},
             "tts_worker": {"tts_model_name": req.tts_model_name, "port": req.port},
@@ -134,38 +140,25 @@ async def register_audio_service(req: AudioServiceRegisterRequest):
         "last_seen": time.time(),
     }
 
-    # 2. Rejestracja niezależnych obiektów zmysłów i ich backendów w ProviderRegistry
-    from controller.core.providers import STTProvider, TTSProvider
-    from controller.providers.audio.backends import AudioServiceSTTBackend, AudioServiceTTSBackend
-
+    # 2. Budowanie backendów i rejestracja w ProviderRegistry
     stt_backend = AudioServiceSTTBackend(
         id=f"{client_id}-stt",
         name=f"Faster-Whisper ({req.stt_model_size})",
-        host=req.host,
-        port=req.port,
+        base_url=req.base_url,
         model_size=req.stt_model_size,
     )
     tts_backend = AudioServiceTTSBackend(
         id=f"{client_id}-tts",
         name=f"Piper ({req.tts_model_name})",
-        host=req.host,
-        port=req.port,
+        base_url=req.base_url,
         voice_name=req.tts_model_name,
     )
 
-    provider_registry.register_stt_provider(STTProvider(
-        id=f"{client_id}-stt",
-        name=f"Faster-Whisper ({req.stt_model_size})",
-        backend=stt_backend,
-    ))
-    provider_registry.register_tts_provider(TTSProvider(
-        id=f"{client_id}-tts",
-        name=f"Piper ({req.tts_model_name})",
-        backend=tts_backend,
-    ))
+    provider_registry.register_stt(stt_backend)
+    provider_registry.register_tts(tts_backend)
 
     if is_new:
-        logging.info(f"[Kontroler] Zarejestrowano zmysły mowy w ProviderRegistry: {req.name} ({req.host}:{req.port})")
+        logging.info(f"[Kontroler] Zarejestrowano backendy audio w ProviderRegistry: {req.name} ({req.base_url})")
         await message_bus.publish(ClientRegisteredMessage(
             client_id=client_id,
             client_type="http",
@@ -355,9 +348,6 @@ async def _handle_ws_task_event(client_id: str, data: dict, websocket: WebSocket
         if task_id:
             from controller.providers.llm.client_app import route_task_event as route_llm_task_event
             route_llm_task_event(task_id, event_data)
-
-            from controller.providers.audio.service import route_task_event as route_audio_task_event
-            route_audio_task_event(task_id, event_data)
         else:
             logging.warning(f"Odebrano task_event bez task_id od klienta {client_id}")
     except Exception as e:

@@ -1,6 +1,16 @@
 # Lista Zadań Projektu Regis (TASKS)
 
-## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Przeniesienie `VoiceChannel` do `src/controller/core/voice_channel.py`)
+## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Refaktoryzacja Architektury Providers & Backends)
+
+- [x] **Usunięcie zbędnych warstw pośrednich (`core/providers/`)**: Wycięto klasy `BaseProvider`, `STTProvider`, `TTSProvider`, `LLMProvider` — były wrapperami bez wartości dodanej; usunięto cały katalog `core/providers/`.
+- [x] **Ujednolicenie wzorca ABC dla backendów audio**: `STTBackend` i `TTSBackend` jako formalne klasy abstrakcyjne (ABC); `AudioServiceSTTBackend`/`AudioServiceTTSBackend` dziedziczą bezpośrednio; liveness (`last_seen`, `touch()`, `is_online`) przeniesione do backendów.
+- [x] **Pełne przejście LLM backends na async httpx**: `OllamaBackend`, `OpenRouterBackend`, `ClientAppBackend` — `chat_stream()` i `is_available()` są teraz `async`; `requests` usunięty z warstwy LLM.
+- [x] **Oczyszczenie `provider_registry`**: Rejestr nie buduje już backendów z dictów, nie zna konkretnych implementacji — przyjmuje gotowe obiekty `STTBackend`/`TTSBackend`; usunięto `_llm_providers`, `get_active_llm_provider()`, `is_full_mode()`.
+- [x] **Resolver LLM `get_active_llm()` (async)**: Przemianowanie `get_llm_backend()` → `get_active_llm()`; orkiestrator używa resolvera bezpośrednio zamiast przez registry.
+- [x] **Usunięcie `service.py`**: Plik-relikt z 4 martwymi importami usunięty; subskrypcje `RawAudioReceived` i `AgentSpoke` przeniesione do `orchestrator.py`.
+- [x] **Testy**: 44 passed, 0 failed po refaktoryzacji (w tym nowe testy async, ABC abstrakcyjności, liveness).
+
+
 
 - [x] **Wyodrębnienie `VoiceChannel` na Właściwy Poziom Architektoniczny (`src/controller/core/voice_channel.py`)**:
   - Klasa `VoiceChannel` została przeniesiona z pakietu `providers/` bezpośrednio do rdzenia `src/controller/core/voice_channel.py`.

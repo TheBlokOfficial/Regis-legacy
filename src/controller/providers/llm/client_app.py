@@ -28,14 +28,14 @@ def route_task_event(task_id: str, event: dict) -> None:
 
 class ClientAppBackend(LLMBackend):
     """
-    Dostawca LLM realizujący strumieniowanie przez usługi aplikacji klienckiej (np. Regis Desktop).
+    Backend LLM realizujący strumieniowanie przez usługi aplikacji klienckiej (np. Regis Desktop).
     """
 
     def __init__(self, client_id: str, model_name: str = "nieznany"):
         self.client_id = client_id
         self.model_name = model_name
 
-    def is_available(self) -> bool:
+    async def is_available(self) -> bool:
         return bool(self.client_id)
 
     def get_provider_name(self) -> str:
@@ -44,7 +44,7 @@ class ClientAppBackend(LLMBackend):
     async def chat_stream(
         self,
         messages: list[dict],
-        tools: list[dict] | None = None
+        tools: list[dict] | None = None,
     ) -> AsyncGenerator[dict, None]:
         import uuid
         task_id = str(uuid.uuid4())

@@ -63,37 +63,17 @@ class _SSEEmitter:
                 self.emit_profiler_metric(m, val)
 
 
-def _consume_sync_stream(stream_res: Any, emitter: _SSEEmitter) -> tuple[str, list[dict]]:
-    """Pobiera i scala synchroniczny strumień generatora od modelu w osobnym wątku."""
+async def _consume_stream(stream_res: Any, emitter: _SSEEmitter) -> tuple[str, list[dict]]:
+    """Pobiera i scala asynchroniczny strumień od backendu LLM."""
     current_content = ""
     current_tool_calls: list[dict] = []
-
-    for event in stream_res:
+    async for event in stream_res:
         emitter.process_stream_event(event)
         if event.get("type") == "content":
             current_content += event.get("content", "")
         elif event.get("type") == "tool_calls":
             current_tool_calls = event.get("tool_calls", [])
-
     return current_content, current_tool_calls
-
-
-async def _consume_stream(stream_res: Any, emitter: _SSEEmitter) -> tuple[str, list[dict]]:
-    """Pobiera i scala strumień od modelu, używając SSEEmitter do propagacji na żywo."""
-    if hasattr(stream_res, "__aiter__"):
-        current_content = ""
-        current_tool_calls: list[dict] = []
-        async for event in stream_res:
-            emitter.process_stream_event(event)
-            if event.get("type") == "content":
-                current_content += event.get("content", "")
-            elif event.get("type") == "tool_calls":
-                current_tool_calls = event.get("tool_calls", [])
-        return current_content, current_tool_calls
-    else:
-        # Synchroniczne zapytanie generujące (np. requests.post w OllamaBackend/OpenRouterBackend)
-        # Uruchamiamy w osobnym wątku, by NIE BLOKOWAĆ pętli zdarzeń asyncio!
-        return await asyncio.to_thread(_consume_sync_stream, stream_res, emitter)
 
 
 async def predict_next_action(
@@ -103,7 +83,7 @@ async def predict_next_action(
     loop: asyncio.AbstractEventLoop,
 ) -> tuple[str, list[dict], int, dict]:
     """
-    Wysyła jedno żądanie do modelu LLM i strumieniuje odpowiedź.
+    Wysyła jedno żądanie do backendu LLM i strumieniuje odpowiedź.
     Zwraca krotkę: (content, tool_calls, elapsed_ms, profiler_data)
     """
     emitter = _SSEEmitter(q, loop)
