@@ -15,9 +15,6 @@ import logging
 import time
 from typing import Any
 
-from controller.agent.prompt.tools_schema import get_tools_schema
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -81,6 +78,7 @@ async def predict_next_action(
     messages: list[dict],
     q: asyncio.Queue,
     loop: asyncio.AbstractEventLoop,
+    tools_schema: list[dict] | None = None,
 ) -> tuple[str, list[dict], int, dict]:
     """
     Wysyła jedno żądanie do backendu LLM i strumieniuje odpowiedź.
@@ -92,21 +90,15 @@ async def predict_next_action(
     current_content = ""
     current_tool_calls = []
 
-    tools_schema = get_tools_schema()
+    if hasattr(stream_provider, "chat_stream"):
+        stream_res = stream_provider.chat_stream(messages, tools=tools_schema)
+    elif callable(stream_provider):
+        stream_res = stream_provider(messages, tools=tools_schema)
+    else:
+        raise ValueError("stream_provider musi posiadać metodę chat_stream lub być callable")
 
-    try:
-        if hasattr(stream_provider, "chat_stream"):
-            stream_res = stream_provider.chat_stream(messages, tools=tools_schema)
-        elif callable(stream_provider):
-            stream_res = stream_provider(messages, tools=tools_schema)
-        else:
-            raise ValueError("stream_provider musi posiadać metodę chat_stream lub być callable")
+    current_content, current_tool_calls = await _consume_stream(stream_res, emitter)
 
-        current_content, current_tool_calls = await _consume_stream(stream_res, emitter)
-            
-    except Exception as e:
-        logger.exception(f"Błąd podczas wywołania stream_provider: {e}")
-        
     elapsed_ms = int((time.time() - t_start) * 1000.0)
     
     return current_content.strip() if current_content else "", current_tool_calls, elapsed_ms, emitter.profiler_data

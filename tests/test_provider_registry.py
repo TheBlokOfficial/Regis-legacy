@@ -5,11 +5,11 @@ import time
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from controller.providers.audio.backends import STTBackend, TTSBackend, AudioServiceSTTBackend, AudioServiceTTSBackend
-from controller.core.voice_channel import VoiceChannel
-from controller.core.provider_registry import (
-    _stt,
-    _tts,
+from controller.providers.audio.base import STTBackend, TTSBackend
+from controller.providers.audio.audio_service import AudioServiceSTTBackend, AudioServiceTTSBackend
+from controller.providers.voice_channel import VoiceChannel
+from controller.providers.registry import (
+    clear_audio_backends,
     register_stt,
     register_tts,
     get_active_stt,
@@ -21,11 +21,9 @@ from controller.core.provider_registry import (
 
 @pytest.fixture(autouse=True)
 def _clear_providers():
-    _stt.clear()
-    _tts.clear()
+    clear_audio_backends()
     yield
-    _stt.clear()
-    _tts.clear()
+    clear_audio_backends()
 
 
 # =============================================================================
@@ -98,6 +96,7 @@ def test_tts_backend_is_abstract():
 @pytest.mark.anyio
 async def test_orchestrator_integration_with_llm_backend():
     from controller.orchestrator import handle_user_spoke
+    from controller.providers.registry import llm
 
     class DummyBackend:
         model_name = "test_model:latest"
@@ -112,10 +111,9 @@ async def test_orchestrator_integration_with_llm_backend():
             yield {"type": "content", "content": "Test response"}
 
     dummy_backend = DummyBackend()
+    llm.set_backend(dummy_backend)
 
-    with patch("controller.orchestrator.llm_resolver.get_active_llm", new_callable=AsyncMock, return_value=dummy_backend), \
-         patch("controller.orchestrator.predict_next_action", new_callable=AsyncMock) as mock_predict:
-
+    with patch("controller.orchestrator.predict_next_action", new_callable=AsyncMock) as mock_predict:
         mock_predict.return_value = ("Test response", [], 100, {})
 
         items = []
@@ -124,15 +122,57 @@ async def test_orchestrator_integration_with_llm_backend():
 
         assert mock_predict.called
         call_kwargs = mock_predict.call_args.kwargs
-        assert call_kwargs["stream_provider"] == dummy_backend
+        assert call_kwargs["stream_provider"] == llm
 
 
 @pytest.mark.anyio
 async def test_orchestrator_no_llm_returns_early():
     from controller.orchestrator import handle_user_spoke
+    from controller.providers.registry import llm
 
-    with patch("controller.orchestrator.llm_resolver.get_active_llm", new_callable=AsyncMock, return_value=None):
-        items = []
-        async for item in handle_user_spoke(text="Cześć", sender="test_sender"):
-            items.append(item)
-        assert items == []
+    llm.set_backend(None)
+    items = []
+    async for item in handle_user_spoke(text="Cześć", sender="test_sender"):
+        items.append(item)
+    assert items == []
+
+
+@pytest.mark.anyio
+async def test_orchestrator_streams_structured_tool_events():
+    import controller.state as app_state
+    from controller.agent.tools.registry import ToolsRegistry
+    from controller.orchestrator import handle_user_spoke
+    from controller.providers.registry import llm
+
+    class DummyBackend:
+        model_name = "test-model"
+
+        def get_provider_name(self):
+            return "dummy"
+
+    registry = ToolsRegistry()
+    registry.register(
+        {"type": "function", "function": {"name": "test_tool", "parameters": {}}},
+        lambda _: '{"result": "ok"}',
+    )
+    previous_registry = app_state.tools_registry
+    previous_backend = llm.backend
+    app_state.tools_registry = registry
+    llm.set_backend(DummyBackend())
+
+    try:
+        with patch("controller.orchestrator.predict_next_action", new_callable=AsyncMock) as mock_predict:
+            mock_predict.side_effect = [
+                ("", [{"id": "call-1", "function": {"name": "test_tool", "arguments": "{}"}}], 1, {}),
+                ("Gotowe.", [], 1, {}),
+            ]
+            events = [item async for item in handle_user_spoke("uruchom", "tool-event-test")]
+
+        tool_call = next(event for event in events if event["type"] == "tool_call")
+        tool_result = next(event for event in events if event["type"] == "tool_result")
+        assert tool_call["content"] == {"name": "test_tool", "arguments": {}}
+        assert tool_result["content"]["name"] == "test_tool"
+        assert any(event["type"] == "done" for event in events)
+    finally:
+        app_state.tools_registry = previous_registry
+        llm.set_backend(previous_backend)

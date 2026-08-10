@@ -1,42 +1,14 @@
 """
-Silniki Wykonawcze (Backendy) mowy (STT / TTS).
-
-Definiuje abstrakcyjne interfejsy STTBackend i TTSBackend, po których dziedziczą
-konkretne implementacje komunikujące się przez HTTP z daemonami audio.
+Silniki Wykonawcze HTTP dla Stacjonarnej Usługi Audio Service (Faster-Whisper STT / Piper TTS).
 """
 import time
 import logging
 import httpx
-from abc import ABC, abstractmethod
+
+from controller.providers.audio.base import STTBackend, TTSBackend
 
 logger = logging.getLogger(__name__)
 
-
-# =============================================================================
-# ABSTRAKCYJNE INTERFEJSY BACKENDÓW
-# =============================================================================
-
-class STTBackend(ABC):
-    """Abstrakcyjny interfejs silnika transkrypcji mowy (STT)."""
-
-    @abstractmethod
-    async def transcribe(self, audio_bytes: bytes) -> tuple[str | None, int]:
-        """Transkrybuje surowe bajty audio na tekst. Zwraca (tekst, czas_ms)."""
-        pass
-
-
-class TTSBackend(ABC):
-    """Abstrakcyjny interfejs silnika syntezy głosu (TTS)."""
-
-    @abstractmethod
-    async def synthesize(self, text: str) -> tuple[str | None, int]:
-        """Syntetyzuje tekst na audio (base64). Zwraca (audio_b64, czas_ms)."""
-        pass
-
-
-# =============================================================================
-# KONKRETNE IMPLEMENTACJE — AUDIO SERVICE DAEMON
-# =============================================================================
 
 class AudioServiceSTTBackend(STTBackend):
     """Silnik transkrypcji mowy (STT) komunikujący się z daemonem Audio Service (Faster-Whisper)."""

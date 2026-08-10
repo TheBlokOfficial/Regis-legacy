@@ -33,3 +33,6 @@ class BaseIntegration(ABC):
             "detail": self.detail,
             "status": status,
         }
+
+    def register_tools(self, registry) -> None:
+        """Rejestruje opcjonalne narzędzia integracji w agencie."""

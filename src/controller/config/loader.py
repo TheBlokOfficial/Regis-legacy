@@ -90,7 +90,7 @@ def save(instance: BaseModel) -> None:
 
 def get_controller_url() -> str:
     """Zwraca wyznaczony adres URL serwera Kontrolera."""
-    from controller.core.state import _settings_cache
+    from controller.state import _settings_cache
     controller_url = _settings_cache.get("controller_url", "auto")
     if controller_url == "auto" or "127.0.0.1" in controller_url or "localhost" in controller_url:
         from protocol.discovery import get_local_ip

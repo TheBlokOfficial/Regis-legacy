@@ -5,9 +5,9 @@ import logging
 import requests
 import asyncio
 
-import controller.core.client_registry as client_registry
+import controller.clients.registry as client_registry
 import controller.agent.session.store as session_store
-from controller.core.message_bus import message_bus
+from controller.bus.message_bus import message_bus
 from controller.messages import ClearHistoryMessage
 
 logger = logging.getLogger(__name__)

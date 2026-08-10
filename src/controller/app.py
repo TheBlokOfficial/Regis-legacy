@@ -14,19 +14,19 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 # --- Wewnętrzne moduły Regis ---
-import controller.core.state as app_state
-import controller.core.client_registry as client_registry
-import controller.endpoints.clients as endpoints_clients
-from controller.endpoints.clients import client_manager
-import controller.core.message_bus as message_bus
+import controller.state as app_state
+import controller.clients.registry as client_registry
+from controller.clients.connections import client_manager
+import controller.bus.message_bus as message_bus
 from controller.messages import ClientUnregisteredMessage
-import controller.agent.session.store as session_store
 import controller.agent.session.manager as session_manager
 import controller.orchestrator as orchestrator
+import controller.providers.registry as provider_registry
 from controller.config import loader as config
 from controller.config.schemas import SystemSettings
 from controller.integrations.loader import load_integrations
 from controller.agent.tools.registry import ToolsRegistry
+from controller.integrations.system_tools import SystemTools
 from protocol.discovery import get_local_ip, start_discovery_server
 
 # --- Routery Endpoints HTTP/WS ---
@@ -99,8 +99,18 @@ async def lifespan(app: FastAPI):
     for integration in load_integrations(settings):
         app_state.register_integration(integration)
 
-    # 3. Inicjalizacja rejestru narzędzi Agenta oraz bufora ustawień
-    app_state.tools_registry = ToolsRegistry()
+    # 3. Inicjalizacja zmysłu LLM, rejestru narzędzi Agenta oraz bufora ustawień.
+    # Nie może ona zależeć od późniejszego zdarzenia satelity (np. wake_check),
+    # ponieważ czat HTTP jest równoprawnym wejściem do agenta.
+    active_llm = await provider_registry.get_active_llm()
+    if active_llm is None:
+        logging.warning("Nie znaleziono dostępnego backendu LLM; interakcje z agentem będą niedostępne.")
+
+    tools_registry = ToolsRegistry()
+    for integration in app_state.integration_registry.values():
+        integration.register_tools(tools_registry)
+    SystemTools().register_tools(tools_registry)
+    app_state.tools_registry = tools_registry
     app_state._settings_cache.update(settings.model_dump())
 
     # 4. Uruchomienie zadania sprawdzania obecności połączeń w tle (Heartbeat)

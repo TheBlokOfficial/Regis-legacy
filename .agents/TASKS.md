@@ -1,5 +1,24 @@
 # Lista Zadań Projektu Regis (TASKS)
 
+## Aktywny plan — stabilizacja i refaktoryzacja Kontrolera (2026-08-10)
+
+- [x] **Ustabilizowanie runtime providerów**:
+  - Naprawiono kontrakt `endpoints/system.py` ↔ `providers/registry.py`; dodano test snapshotu `/api/status`.
+  - Aktywny LLM jest inicjalizowany podczas startu Kontrolera, niezależnie od ścieżki `wake_check`.
+  - Scalono rejestr audio w `providers/registry.py` i usunięto martwy `providers/audio/registry.py`.
+- [x] **Rozdzielenie narzędzi od core agenta**:
+  - Konkretne narzędzia Home Assistanta przeniesiono do `integrations/ha_tools.py`, a systemowe do `integrations/system_tools.py`.
+  - `agent/tools/registry.py` zawiera wyłącznie mechanizm rejestracji i wykonania kontraktów.
+  - Prompt przekazuje pokój do menu narzędzi, przywracając Spatial Context Filtering.
+- [x] **Kontrakty tury konwersacyjnej i SRP — etap 1**:
+  - Zdarzenia narzędzi SSE mają ustrukturyzowany kontrakt zgodny z Web UI, a błędy backendu LLM propagują się do orkiestratora.
+  - Transport WebSocket wydzielono z `endpoints/clients.py` do `clients/connections.py`.
+  - Dalszy podział trwałej konfiguracji i rejestracji klientów pozostaje opcjonalnym krokiem porządkowym.
+- [x] **Weryfikacja i dokumentacja**:
+  - Dodano testy regresyjne nowych kontraktów; pełny zestaw pytest: 51 passed.
+  - Uaktualniono `.agents/HANDOFF.md` do bieżącej struktury.
+  - Sesja została zamknięta z aktualnym rejestrem prac; zmiany są gotowe do commitu i wysłania.
+
 ## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Refaktoryzacja Architektury Providers & Backends)
 
 - [x] **Usunięcie zbędnych warstw pośrednich (`core/providers/`)**: Wycięto klasy `BaseProvider`, `STTProvider`, `TTSProvider`, `LLMProvider` — były wrapperami bez wartości dodanej; usunięto cały katalog `core/providers/`.
@@ -299,4 +318,3 @@
   - Nowy komponent (Python daemon: Faster-Whisper + Piper) na mini PC, osobny proces nasłuchujący na HTTP. Aktualnie rolę tę pełni RegisDesktop (tymczasowo). Wymagany do osiągnięcia docelowej architektury. Decyzja z sesji 2026-08-10.
 - [ ] **Formalne oddzielenie ról RegisDesktop** `[ARCH]`:
   - Podział RegisDesktop na "tryb dev" (usługi + satelita) i "tryb prod" (tylko satelita). Wymaga wdrożenia Audio Service jako prerequisite. Decyzja z sesji 2026-08-10.
-

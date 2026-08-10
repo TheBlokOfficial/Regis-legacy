@@ -4,8 +4,7 @@ from unittest.mock import patch, AsyncMock
 
 from controller.providers.llm.ollama import OllamaBackend
 from controller.providers.llm.openrouter import OpenRouterBackend
-from controller.providers.llm.client_app import ClientAppBackend
-import controller.providers.llm.resolver as providers
+import controller.providers.llm as providers
 
 
 # =============================================================================
@@ -49,14 +48,16 @@ async def test_openrouter_is_available_false():
 
 
 # =============================================================================
-# Resolver (async)
+# Zmysł LLM (async)
 # =============================================================================
 
 @pytest.mark.anyio
 @patch.object(OpenRouterBackend, "is_available", new_callable=AsyncMock, return_value=True)
-@patch("controller.providers.llm.resolver.endpoints_cloud.get_cloud_providers")
+@patch("controller.endpoints.cloud.get_cloud_providers")
 async def test_get_active_llm_returns_openrouter(mock_get_cloud, mock_openrouter_avail):
     from controller.config.schemas import CloudProviderConfig
+    from controller.providers.registry import get_active_llm, llm
+    llm.set_backend(None)
     mock_get_cloud.return_value = [CloudProviderConfig(
         id="test",
         type="openrouter",
@@ -64,45 +65,34 @@ async def test_get_active_llm_returns_openrouter(mock_get_cloud, mock_openrouter
         model="test_model",
         priority=50,
     )]
-    providers.client_registry.client_registry.clear()
-    backend = await providers.get_active_llm()
+    backend = await get_active_llm()
     assert isinstance(backend, OpenRouterBackend)
-
-
-@pytest.mark.anyio
-@patch.object(OpenRouterBackend, "is_available", new_callable=AsyncMock, return_value=False)
-@patch("controller.providers.llm.resolver.endpoints_cloud.get_cloud_providers", return_value=[])
-async def test_get_active_llm_returns_client_app_if_registered(mock_get_cloud, mock_openrouter_avail):
-    providers.client_registry.client_registry.clear()
-    providers.client_registry.client_registry["worker_1"] = {"id": "worker_1", "priority": 10, "model_name": "qwen3.5:9b"}
-    backend = await providers.get_active_llm()
-    assert isinstance(backend, ClientAppBackend)
-    assert backend.model_name == "qwen3.5:9b"
-    providers.client_registry.client_registry.clear()
 
 
 @pytest.mark.anyio
 @patch.object(OllamaBackend, "is_available", new_callable=AsyncMock, return_value=True)
 @patch.object(OpenRouterBackend, "is_available", new_callable=AsyncMock, return_value=False)
-@patch("controller.providers.llm.resolver.endpoints_cloud.get_cloud_providers", return_value=[])
+@patch("controller.endpoints.cloud.get_cloud_providers", return_value=[])
 async def test_get_active_llm_returns_ollama_if_available(mock_get_cloud, mock_openrouter_avail, mock_ollama_avail):
-    providers.client_registry.client_registry.clear()
-    backend = await providers.get_active_llm()
+    from controller.providers.registry import get_active_llm, llm
+    llm.set_backend(None)
+    backend = await get_active_llm()
     assert isinstance(backend, OllamaBackend)
 
 
 @pytest.mark.anyio
 @patch.object(OllamaBackend, "is_available", new_callable=AsyncMock, return_value=False)
 @patch.object(OpenRouterBackend, "is_available", new_callable=AsyncMock, return_value=False)
-@patch("controller.providers.llm.resolver.endpoints_cloud.get_cloud_providers", return_value=[])
+@patch("controller.endpoints.cloud.get_cloud_providers", return_value=[])
 async def test_get_active_llm_returns_none_if_none_available(mock_get_cloud, mock_openrouter_avail, mock_ollama_avail):
-    providers.client_registry.client_registry.clear()
-    backend = await providers.get_active_llm()
+    from controller.providers.registry import get_active_llm, llm
+    llm.set_backend(None)
+    backend = await get_active_llm()
     assert backend is None
 
 
 # =============================================================================
-# Bez zmian — testy logiki domenowej
+# Testy logiki domenowej
 # =============================================================================
 
 def test_build_messages_from_history_flat():
@@ -161,3 +151,23 @@ def test_predict_next_action_simple():
 
     result = asyncio.run(_test())
     assert result == "Cześć!"
+
+
+def test_predict_next_action_propagates_backend_error():
+    from controller.agent.engine import predict_next_action
+
+    class BrokenStreamProvider:
+        async def chat_stream(self, messages, tools=None):
+            raise RuntimeError("backend unavailable")
+            yield  # pragma: no cover
+
+    async def _test():
+        with pytest.raises(RuntimeError, match="backend unavailable"):
+            await predict_next_action(
+                stream_provider=BrokenStreamProvider(),
+                messages=[],
+                q=asyncio.Queue(),
+                loop=asyncio.get_running_loop(),
+            )
+
+    asyncio.run(_test())

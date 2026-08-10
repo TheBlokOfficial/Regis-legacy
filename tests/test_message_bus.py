@@ -3,7 +3,7 @@ Testy jednostkowe dla refaktoryzowanej magistrali wiadomości (MessageBus).
 """
 import asyncio
 import pytest
-from controller.core.message_bus import MessageBus
+from controller.bus.message_bus import MessageBus
 
 
 class _Msg:

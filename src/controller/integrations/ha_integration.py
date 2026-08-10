@@ -45,6 +45,12 @@ class HomeAssistantIntegration(BaseIntegration):
         except Exception:
             return "offline"
 
+    def register_tools(self, registry) -> None:
+        """Udostępnia możliwości Home Assistanta jako narzędzia agenta."""
+        from controller.integrations.ha_tools import HomeAssistantTools
+
+        HomeAssistantTools(self).register_tools(registry)
+
     # ── Metody integracji ──────────────────────────────────────────────
 
     @property
@@ -71,4 +77,3 @@ class HomeAssistantIntegration(BaseIntegration):
         if self.ha_client and hasattr(self.ha_client, "_flatten_entities"):
             return self.ha_client._flatten_entities(entity_id)
         return [entity_id]
-

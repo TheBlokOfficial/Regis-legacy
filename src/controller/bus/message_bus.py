@@ -1,5 +1,5 @@
 """
-Agnostyczna Magistrala Wiadomości Regis (MessageBus — Warstwa 1 / Core).
+Agnostyczna Magistrala Wiadomości Regis (MessageBus — Warstwa Komunikacji).
 
 Czysty, agnostyczny mechanizm posiadający trzy metody:
 - subscribe(topic_or_type, subscriber)        — fire-and-forget (coroutine lub sync)

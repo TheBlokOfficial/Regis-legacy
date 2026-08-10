@@ -4,7 +4,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import controller.agent.session.store as session_store
-from controller.core.message_bus import message_bus
+from controller.bus.message_bus import message_bus
 from controller.messages import (
     UserSpoke, 
     RawAudioReceived, 

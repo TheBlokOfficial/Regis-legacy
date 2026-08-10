@@ -1,9 +1,10 @@
+import asyncio
 import json
 from fastapi import APIRouter
 from fastapi.responses import Response
 
 from protocol.schemas import ToolExecutionRequest
-import controller.core.state as app_state
+import controller.state as app_state
 
 router_tools = APIRouter()
 
@@ -30,7 +31,7 @@ async def execute_tool_proxy(request: ToolExecutionRequest):
     arguments = dict(request.arguments)
     if request.room is not None and "room" not in arguments:
         arguments["room"] = request.room
-    result = app_state.tools_registry.execute_tool(request.tool_name, arguments)
+    result = await asyncio.to_thread(app_state.tools_registry.execute_tool, request.tool_name, arguments)
     return Response(content=result, media_type="application/json")
 
 @router_tools.get("/v1/tools/menu")
@@ -38,4 +39,5 @@ async def get_global_menu():
     """Zwraca globalne menu w postaci Markdown."""
     if not app_state.tools_registry:
         return Response(content="BRAK REJESTRU", status_code=503)
-    return Response(content=app_state.tools_registry.get_global_menu(), media_type="text/plain")
+    menu = await asyncio.to_thread(app_state.tools_registry.get_menu)
+    return Response(content=menu, media_type="text/plain")

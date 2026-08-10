@@ -120,5 +120,3 @@ def get_client_room(client_id: str | None) -> str | None:
         if isinstance(services, dict) and sat_key in services:
             return services[sat_key].get("room")
     return None
-
-

@@ -1,5 +1,5 @@
 """
-Usługa telemetryczna i bufor zdarzeń SSE dla Dashboardu Web UI (Warstwa Core).
+Usługa telemetryczna i bufor zdarzeń SSE dla Dashboardu Web UI.
 
 Słucha typowanych klas wiadomości domenowych na agnostycznej magistrali MessageBus
 i konwertuje je na bufor historii dla interfejsu przeglądarkowego.
@@ -7,7 +7,7 @@ i konwertuje je na bufor historii dla interfejsu przeglądarkowego.
 import asyncio
 import datetime
 from collections import deque
-from controller.core.message_bus import message_bus
+from controller.bus.message_bus import message_bus
 from controller.messages import (
     UserSpoke,
     AgentSpoke,

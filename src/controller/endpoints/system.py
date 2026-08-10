@@ -11,16 +11,16 @@ import json
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
-import controller.core.state as state
-import controller.core.client_registry as client_registry
-import controller.core.telemetry as telemetry
+import controller.state as state
+import controller.clients.registry as client_registry
+import controller.bus.telemetry as telemetry
 
 router_system = APIRouter()
 
 
 
 
-import controller.core.provider_registry as provider_registry
+import controller.providers.registry as provider_registry
 
 async def get_status_snapshot() -> dict:
     """Zwraca aktualny stan systemu: węzły, satelity, integracje, zmysły, info o Kontrolerze."""
@@ -41,17 +41,17 @@ async def get_status_snapshot() -> dict:
     workers = client_registry.get_llm_clients()
     satellites = client_registry.get_satellite_clients()
 
-    # Wyliczanie zmysłów z ProviderRegistry
-    active_stt = provider_registry.get_active_stt_provider()
-    active_tts = provider_registry.get_active_tts_provider()
-    active_llm = provider_registry.get_active_llm_provider()
+    # Wyliczanie zmysłów z aktualnego kontraktu ProviderRegistry.
+    active_stt = provider_registry.get_active_stt()
+    active_tts = provider_registry.get_active_tts()
+    active_llm = provider_registry.llm.backend
 
     stt_count = 1 if active_stt else 0
     tts_count = 1 if active_tts else 0
     llm_count = 1 if active_llm else 0
 
     voice_channel_ready = provider_registry.is_voice_channel_ready()
-    full_mode = provider_registry.is_full_mode()
+    full_mode = active_llm is not None and voice_channel_ready
 
     audio_workers = []
     if active_stt or active_tts:

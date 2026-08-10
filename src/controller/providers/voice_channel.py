@@ -1,20 +1,20 @@
 """
-Klasa VoiceChannel — Zarządca Kanału Głosowego w rdzeniu Kontrolera.
+Klasa VoiceChannel — Zarządca Kanału Głosowego (Zmysł Mowy).
 
 Spaja ze sobą aktywny STTBackend oraz TTSBackend z worka zmysłów
 i udostępnia spójny interfejs transkrypcji i syntezy dla Orkiestratora.
 """
 import logging
 from typing import Optional
-from controller.providers.audio.backends import STTBackend, TTSBackend
+from controller.providers.audio.base import STTBackend, TTSBackend
 
 logger = logging.getLogger(__name__)
 
 
 class VoiceChannel:
     """
-    Zarządca Kanału Głosowego.
-    Spina niezależne backendy STT i TTS w jeden interfejs.
+    Zarządca Kanału Głosowego (Zmysł Mowy).
+    Hermetyzuje wybrane silniki STT i TTS.
     """
 
     def __init__(
@@ -23,6 +23,14 @@ class VoiceChannel:
         tts: Optional[TTSBackend] = None,
     ):
         self.stt = stt
+        self.tts = tts
+
+    def set_stt(self, stt: Optional[STTBackend]) -> None:
+        """Ustawia lub podmienia silnik transkrypcji mowy (STT)."""
+        self.stt = stt
+
+    def set_tts(self, tts: Optional[TTSBackend]) -> None:
+        """Ustawia lub podmienia silnik syntezy głosu (TTS)."""
         self.tts = tts
 
     @property

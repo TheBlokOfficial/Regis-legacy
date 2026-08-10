@@ -11,8 +11,9 @@ from protocol.schemas import (
     WSClientEvent,
     WSCommandResult,
 )
-import controller.core.client_registry as client_registry
-from controller.core.message_bus import message_bus
+import controller.clients.registry as client_registry
+from controller.clients.connections import client_manager
+from controller.bus.message_bus import message_bus
 from controller.messages import (
     PlayAudioMessage,
     PauseSatelliteMessage,
@@ -34,39 +35,6 @@ router_clients = APIRouter()
 class ClientCommandRequest(BaseModel):
     command: str  # np. service_control, status, config
     data: dict = {}
-
-
-class ClientConnectionManager:
-    """Zarządza aktywnymi połączeniami WebSocket ze Zjednoczonymi Klientami."""
-
-    def __init__(self):
-        self.active_connections: dict[str, WebSocket] = {}
-
-    def is_connected(self, client_id: str) -> bool:
-        return client_id in self.active_connections
-
-    async def connect(self, client_id: str, websocket: WebSocket) -> None:
-        await websocket.accept()
-        self.active_connections[client_id] = websocket
-
-    def disconnect(self, client_id: str) -> None:
-        if client_id in self.active_connections:
-            del self.active_connections[client_id]
-
-    async def send_command(self, client_id: str, command: str, data: dict = None) -> bool:
-        """Wysyła komendę do klienta przez WebSocket. Zwraca True jeśli wysłano pomyślnie."""
-        from protocol.schemas import WSCommand
-        if client_id in self.active_connections:
-            try:
-                cmd = WSCommand(command=command, data=data or {})
-                await self.active_connections[client_id].send_text(cmd.model_dump_json())
-                return True
-            except Exception:
-                self.disconnect(client_id)
-        return False
-
-
-client_manager = ClientConnectionManager()
 
 
 def _get_persistent_clients() -> dict:
@@ -120,8 +88,8 @@ class AudioServiceRegisterRequest(BaseModel):
 @router_clients.post("/v1/clients/audio_ping")
 async def register_audio_service(req: AudioServiceRegisterRequest):
     """Rejestracja/Heartbeat dla stacjonarnego daemona Audio Service w ProviderRegistry."""
-    import controller.core.provider_registry as provider_registry
-    from controller.providers.audio.backends import AudioServiceSTTBackend, AudioServiceTTSBackend
+    import controller.providers.registry as provider_registry
+    from controller.providers.audio.audio_service import AudioServiceSTTBackend, AudioServiceTTSBackend
 
     client_id = req.id
     is_new = client_id not in client_registry.client_registry
@@ -320,10 +288,10 @@ async def _handle_ws_satellite_event(client_id: str, data: dict, websocket: WebS
         ))
 
         if event.event_type == "state" and event.data.get("state") == "WAITING":
-            import controller.providers.llm.resolver as providers
+            import controller.providers.registry as providers
             audio_clients = client_registry.get_audio_clients()
-            llm_clients = client_registry.get_llm_clients()
-            if audio_clients and (llm_clients or providers.has_llm_provider()):
+            llm_backend = await providers.get_active_llm()
+            if audio_clients and llm_backend is not None:
                 await client_manager.send_command(client_id, "satellite_control", {"action": "resume"})
     except Exception as e:
         logging.error(f"Błąd parsowania WSClientEvent: {e}")
@@ -342,24 +310,15 @@ async def _handle_ws_command_result(client_id: str, data: dict, websocket: WebSo
         logging.error(f"Błąd parsowania WSCommandResult: {e}")
 
 async def _handle_ws_task_event(client_id: str, data: dict, websocket: WebSocket):
-    try:
-        task_id = data.get("task_id")
-        event_data = data.get("event", {})
-        if task_id:
-            from controller.providers.llm.client_app import route_task_event as route_llm_task_event
-            route_llm_task_event(task_id, event_data)
-        else:
-            logging.warning(f"Odebrano task_event bez task_id od klienta {client_id}")
-    except Exception as e:
-        logging.error(f"Błąd obsługi task_event: {e}")
+    logging.debug(f"Odebrano task_event od klienta {client_id}")
 
 async def _handle_ws_wake_check(client_id: str, data: dict, websocket: WebSocket):
-    import controller.providers.llm.resolver as providers
+    import controller.providers.registry as providers
     audio_clients = client_registry.get_audio_clients()
-    llm_clients = client_registry.get_llm_clients()
+    llm_backend = await providers.get_active_llm()
     if not audio_clients:
         await websocket.send_json({"type": "wake_check_result", "permitted": False, "reason": "Brak dostępnej usługi Audio (STT/TTS)"})
-    elif not llm_clients and not providers.has_llm_provider():
+    elif llm_backend is None:
         await websocket.send_json({"type": "wake_check_result", "permitted": False, "reason": "Brak dostępnych usług LLM"})
     else:
         await websocket.send_json({"type": "wake_check_result", "permitted": True})

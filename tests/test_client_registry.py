@@ -1,7 +1,7 @@
 import time
 import pytest
 from protocol.schemas import ServiceName
-from controller.core.client_registry import (
+from controller.clients.registry import (
     client_registry,
     get_audio_clients,
     get_llm_clients,
@@ -75,3 +75,18 @@ def test_desktop_satellite_registration():
     assert len(get_llm_clients()) == 0
     assert len(get_audio_clients()) == 0
     assert get_client_room("desktop-sat-1") == "pracownia"
+
+
+@pytest.mark.anyio
+async def test_connection_manager_removes_failed_connection():
+    from controller.clients.connections import ClientConnectionManager
+
+    class BrokenWebSocket:
+        async def send_text(self, _):
+            raise RuntimeError("connection closed")
+
+    manager = ClientConnectionManager()
+    manager.active_connections["client-1"] = BrokenWebSocket()
+
+    assert not await manager.send_command("client-1", "status")
+    assert not manager.is_connected("client-1")
