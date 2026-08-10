@@ -1,6 +1,4 @@
-"""
-Testy jednostkowe dla rejestru klientów w Kontrolerze (client_registry.py).
-"""
+import time
 import pytest
 from protocol.schemas import ServiceName
 from controller.core.client_registry import (
@@ -23,6 +21,7 @@ def test_get_audio_clients_with_stt_and_tts_worker():
     client_registry["node-test"] = {
         "id": "node-test",
         "host": "192.168.0.100",
+        "last_seen": time.time(),
         "services": {
             ServiceName.SATELLITE.value: {"room": "salon"},
             ServiceName.STT_WORKER.value: {"port": 8002, "stt_model_size": "small"},
@@ -48,3 +47,31 @@ def test_get_audio_clients_with_stt_and_tts_worker():
     assert satellites[0]["room"] == "salon"
 
     assert get_client_room("node-test") == "salon"
+
+
+def test_desktop_satellite_registration():
+    client_registry["desktop-sat-1"] = {
+        "id": "desktop-sat-1",
+        "host": "192.168.1.50",
+        "last_seen": time.time(),
+        "services": {
+            ServiceName.SATELLITE.value: {
+                "room": "pracownia",
+                "node_type": "desktop",
+                "capabilities": ["audio_in", "audio_out", "text"],
+                "wakeword_local": True
+            }
+        }
+    }
+
+    satellites = get_satellite_clients()
+    assert len(satellites) == 1
+    assert satellites[0]["id"] == "desktop-sat-1"
+    assert satellites[0]["room"] == "pracownia"
+    assert satellites[0]["type"] == "desktop"
+    assert satellites[0]["wakeword_local"] is True
+
+    # Klient Satelita nie dostarcza workerów LLM ani Audio, więc bez rejestracji audio_service lista get_audio_clients jest pusta
+    assert len(get_llm_clients()) == 0
+    assert len(get_audio_clients()) == 0
+    assert get_client_room("desktop-sat-1") == "pracownia"

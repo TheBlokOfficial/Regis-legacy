@@ -42,7 +42,12 @@ def get_llm_clients() -> list[dict]:
 def get_audio_clients() -> list[dict]:
     """Zwraca listę zarejestrowanych Klientów oferujących usługi audio (STT / TTS)."""
     clients = []
-    for client_id, client in client_registry.items():
+    now = time.time()
+    for client_id, client in list(client_registry.items()):
+        # Ignoruj klientów nieaktywnych (brak heartbeat od ponad 30 sekund)
+        if now - client.get("last_seen", 0) > 30:
+            continue
+
         services = client.get("services", {})
         s_keys = services.keys() if isinstance(services, dict) else services
         if (
@@ -72,6 +77,7 @@ def get_audio_clients() -> list[dict]:
                 "stt_model_size": cfg.get("stt_model_size", cfg.get("model_size", "small")),
                 "tts_model_name": cfg.get("tts_model_name", cfg.get("model_name", "pl_PL-darkman-medium")),
             })
+
     return clients
 
 

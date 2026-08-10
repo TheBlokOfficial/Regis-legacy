@@ -28,30 +28,21 @@ Największym grzechem w tym projekcie jest implementacja funkcji "na siłę", ty
 
 ---
 
-## 3. Model Architektury — Trójwarstwowy
+## 3. Podział Systemu i Hierarchia Komponentów
 
-Architektura Regisa dzieli się na trzy warstwy o ściśle zdefiniowanych rolach i granicach. Każda warstwa komunikuje się z warstwą wyżej wyłącznie przez abstrakcyjne interfejsy — nigdy bezpośrednio przez konkretne implementacje.
+Podział elementów w systemie jest prosty i jednoznaczny:
 
-### 3.0 Hierarchia Komponentów
+1. **Klienci (Satelity)** — urządzania stykowe w pokojach (ESP32, Satelita Desktopowa) będące cienkimi klientami I/O (audio/tekst).
+2. **Providerzy (Dostawcy Zmysłów)** — dzielą się na dwie grupy:
+   - **Agent (LLM Provider)** — najwyżej w hierarchii. To sam agent (mózg) i jego pętla ReAct (OpenRouter w chmurze, Ollama lokalnie). Bez aktywnego LLM agent nie istnieje (fallback: Parser offline).
+   - **Kanał Głosowy (`voice_channel`)** — logiczny stan gotowości interakcji głosowej, budowany dynamicznie z niezależnych providerów **STT** (transkrypcja mowy) oraz **TTS** (synteza głosu) dobieranych z worka dostępnych zmysłów.
 
-Trzy warstwy opisują *granice* systemu. Wewnątrz Warstwy 2 obowiązuje hierarchia ważności komponentów:
+### Zasady Kanału Głosowego:
+- **Brak Sztywnego Bundlowania**: Nie robimy żadnego wiązania konkretnego providera STT z konkretnym providerem TTS. Provider STT (np. Faster-Whisper, Cloud STT) oraz provider TTS (np. Piper, ElevenLabs) są całkowicie niezależnymi usługami dobieranymi z ogólnego "worka".
+- **Warunek Aktywności**: Kanał głosowy jest uznawany za **aktywny** (`voice_channel_ready = STT_active AND TTS_active`), gdy w worku aktywnych providerów znajduje się przynajmniej jeden aktywny dostawca STT i przynajmniej jeden aktywny dostawca TTS.
+- **Infrastruktura I/O**: STT i TTS nie są narzędziami w rozumieniu `ToolRegistry` — agent ich nie wywołuje. Są przezroczystą infrastrukturą I/O satelitów (STT konwertuje głos przed agentem, TTS tekst po agencie).
 
-**LLM Provider** — najwyżej w hierarchii. To jest sam agent — jego zdolność do rozumowania, planowania i działania w oparciu o pętlę ReAct. Bez aktywnego LLM Regis nie istnieje jako agent; jedynym trybem jest Parser offline (minimalny fallback).
-
-**Kanał Głosowy (`voice_channel`)** — STT i TTS tworzą logicznie jeden byt, niżej w hierarchii niż LLM, ale wymagany dla interakcji użytkownika końcowego. Oceniane razem, nie osobno:
-- `voice_channel_ready = STT_active AND TTS_active`
-- Stan częściowy (STT bez TTS lub odwrotnie) = kanał niedostępny. Nie ma stanu "słyszę użytkownika, ale nie mogę odpowiedzieć głosowo" — taki stan niszczy spójność doświadczenia.
-- Technicznie są to dwa osobne serwisy (osobni providerzy), ale systemowo stanowią jeden warunek operacyjności.
-
-**Satelity** — interfejsy wymiany audio i tekstu z użytkownikiem. Nie stanowią inteligencji systemu; są cienkimi klientami strumieniującymi audio do Audio Service.
-
-Ta hierarchia nie zmienia trójwarstwowego modelu architektonicznego — opisuje priorytety i logiczne powiązania wewnątrz Warstwy 2.
-
-**Ważne: Kanał Głosowy to infrastruktura I/O — nie narzędzie agenta**
-
-STT i TTS nie są narzędziami w rozumieniu `ToolRegistry` — agent ich nigdy świadomie nie wywołuje. Są przezroczystą infrastrukturą I/O satelity: STT konwertuje głos użytkownika na tekst *przed* agentem, TTS konwertuje tekst agenta na głos *po* agencie. Agent operuje wyłącznie na tekście i nie ma bezpośredniej wiedzy o warstwach konwersji. Orchestrator zarządza tą infrastrukturą na podstawie `TurnContext` (→ §5.1).
-
-### 3.1 Warstwa 1 — Core (Układ Nerwowy)
+### 3.1 Rdzeń Systemu (Core)
 
 Core to wszystko, co stanowi samego agenta. Instalując Regisa, dostajesz kompletny mózg i układ nerwowy — gotowy do działania po podłączeniu zmysłów. Core nie wymaga konfiguracji, żeby *istnieć* — wymaga podłączonych providerów, żeby *działać*.
 
@@ -70,59 +61,24 @@ Core to wszystko, co stanowi samego agenta. Instalując Regisa, dostajesz komple
 
 **Walidacja przy starcie:** Przynajmniej jedno `ILLMProvider` musi być podłączone. Bez LLM agent nie funkcjonuje — to fundamentalne wymaganie, inaczej niż brak narzędzi (bez integracji HA agent po prostu nic nie może *zrobić* w smart home, ale nadal istnieje).
 
-### 3.2 Warstwa 2 — Providers & Channels (Zmysły i Ręce)
+### 3.2 Dostawcy Zmysłów i Satelity (Providers & Satellites)
 
-Wymienna cybernetyka agenta. Konkretne implementacje podłączane do interfejsów Core przy starcie. Bez warstwy 2 Core istnieje, ale nie funkcjonuje. Zmiana providera STT nie wymaga dotknięcia Core — wymaga jedynie zamiany implementacji w tej warstwie.
+Konkretne implementacje podłączane do interfejsów przy starcie. Zmiana providera STT/TTS nie wymaga dotknięcia Core — wymaga jedynie zamiany implementacji.
 
 | Interfejs | Przykładowe implementacje |
 |---|---|
 | `ILLMProvider` | OpenRouter, Ollama, Anthropic API |
-| `ISTTProvider` | Faster-Whisper (lokalny), Cloud STT API |
-| `ITTSProvider` | Piper (lokalny), Cloud TTS API |
-| `ISatellite` | ESP32, terminal, HTTP API |
+| `ISTTProvider` | Faster-Whisper (lokalny Audio Service), Cloud STT API |
+| `ITTSProvider` | Piper (lokalny Audio Service), Cloud TTS API |
+| `ISatellite` | ESP32, Satelita Desktopowa, HTTP API |
 
-**Regis Desktop** to implementacja satelity warstwy 2 dla systemu Windows. Pełni dwie role zależne od fazy projektu:
+**Regis Desktop** to czysta implementacja satelity dla systemu Windows (VAD, WakeWord lokalne, audio I/O). Usługi LLM, STT i TTS działają na dedykowanej maszynie (mini PC) jako osobne procesy (Ollama + Audio Service).
 
-- **Faza deweloperska (obecna):** Bundluje satelitę (`ISatellite`) z lokalnymi usługami LLM (Ollama), STT (Faster-Whisper) i TTS (Piper). Pozwala na lokalną pracę bez dedykowanej maszyny i bez chmury. Jest to stan tymczasowy — nie docelowy.
-- **Finalny produkt:** Wyłącznie satelita — głosowy interfejs użytkownika na komputerze Windows (VAD, WakeWord lokalne, audio I/O). Usługi LLM, STT i TTS działają wtedy na dedykowanej maszynie (mini PC) jako osobne procesy (Ollama + Audio Service).
+### 3.3 Integracje (Narzędzia)
 
-**Kluczowa właściwość:** Warstwa 2 jest wymienialna bez zmian w Core i bez zmian w warstwie 3. Możesz dołożyć nową satelitę (np. aplikację mobilną) i żaden istniejący kod poza warstwą 2 nie wymaga modyfikacji.
+Konkretne zdolności agenta do działania w świecie zewnętrznym. W fully opcjonalne — agent funkcjonuje bez żadnej integracji, po prostu nie może nic *zrobić* poza rozmową.
 
-### 3.3 Warstwa 3 — Integrations (Narzędzia)
-
-Konkretne zdolności agenta do działania w świecie zewnętrznym. W pełni opcjonalne — agent funkcjonuje bez żadnej integracji, po prostu nie może nic *zrobić* poza rozmową.
-
-**Mechanizm:** Każda integracja rejestruje swoje narzędzia w `ToolRegistry` przy starcie. Core nie wie skąd narzędzia pochodzą — widzi tylko ich sygnatury i wywołuje je przez abstrakcję.
-
-**Przykłady:** Home Assistant (smart home), przeglądarka internetowa, kamery IP, MQTT, własne skrypty, dowolny endpoint z sensownym zastosowaniem.
-
-**Dodanie nowej integracji:** nowy katalog w `integrations/`, rejestracja narzędzi w `ToolRegistry`. Żadne inne warstwy nie wymagają zmian.
-
-### 3.4 Diagram
-
-```
-┌───────────────────────────────────────────────────────┐
-│  WARSTWA 1 — CORE (Układ Nerwowy)                     │
-│                                                       │
-│  [ReAct Loop]    [Session Manager]    [Tool Registry] │
-│       │                                    │          │
-│  [ILLMProvider] [ISTTProvider] [ITTSProvider] [ISatellite]
-└───────────────────────┬───────────────────────────────┘
-                        │ abstrakcyjne interfejsy
-         ┌──────────────┴──────────────────┐
-         ▼                                 ▼
-┌──────────────────────┐   ┌───────────────────────────┐
-│  WARSTWA 2           │   │  WARSTWA 3                │
-│  Providers &         │   │  Integrations (Narzędzia) │
-│  Channels            │   │                           │
-│                      │   │  Home Assistant           │
-│  OpenRouter / Ollama │   │  Web / Pliki / Kamery     │
-│  Whisper / Cloud STT │   │  MQTT / własne API        │
-│  Piper / Cloud TTS   │   │  ...                      │
-│  ESP32 / Desktop     │   │                           │
-│  Terminal / HTTP API │   │                           │
-└──────────────────────┘   └───────────────────────────┘
-```
+**Mechanizm:** Każda integracja rejestruje swoje narzędzia w `ToolRegistry` przy starcie. Core nie wie skąd narzędzia pochodzą — widzi tylko ich sygnatury i wywołuje je przez abstrakcję (np. Home Assistant, przeglądarka internetowa, kamery IP, MQTT).
 
 ---
 

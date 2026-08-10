@@ -2,29 +2,27 @@
 
 **Data sesji**: 2026-08-10
 
-## 1. Co Zostało Wykonane w Ostatniej Sesji
-- **Przebudowa Układu Dashboardu (3 Symetryczne Kafelki)**:
-  - Przekształcono widok Pulpitu (`src/controller/web/views/dashboard.html`) w 3 symetryczne, jednakowe kafelki w jednym rzędzie:
-    1. **Agent & Kanał Audio** (Mózg LLM + Bundle Mowy STT/TTS)
-    2. **Satelity** (Punkty stykowe audio/interakcji z VAD)
-    3. **Integracje** (Mostki zewnętrzne, np. Home Assistant)
-  - Wycentrowano obszar roboczy w CSS (`max-width: 1320px; margin: 0 auto;` w `layout.css`).
-- **Dopracowanie UX & Statusów LED w Kafelku Agenta**:
-  - Podzielono Kafelek 1 na 2 czyste podsekcje: **Agent** oraz **Kanał głosowy**, każda z własną pulsującą diodą LED (🟢 `.dot.online` / 🔴 `.dot.offline`) w nagłówku.
-  - Usunięto zbędny żółty banner "TRYB FALLBACK" oraz wyeliminowano powielone zielone kropki wewnątrz wierszy elementów na rzecz ascetycznego wyglądu (`renderer.js`).
-  - Usunięto etykietę `[• Tryb awaryjny]` z prawego rogu górnego paska statusu (`status-strip`), oczyszczając go do czystej telemetrii liczbowej (`Uptime`, `Agent (LLM)`, `Satelity`, `Integracje`).
-- **Rozstrzygnięcie ws. Refaktoryzacji Backendowo-Klientowej (Spłacenie Długu Technicznego)**:
-  - Uzgodniono zaniechanie pisania skomplikowanych hybrydowych modalów pod tymczasowy monolit dev.
-  - Użytkownik przeprowadza backendową refaktoryzację:
-    1. `RegisDesktop` staje się wyłącznie czystą satelitą (`ISatellite`).
-    2. Kontroler komunikuje się z Ollamą bezpośrednio po HTTP (`localhost:11434`), wycinając wrapper `ollama_worker`.
-    3. Tworzony jest osobny daemon `Audio Service` dla STT (Faster-Whisper) i TTS (Piper).
+## 1. Co Zostało Wykonane w Tej Sesji
+- **Auto-Rejestracja i Heartbeat w `Audio Service` (`src/audio_service/main.py`)**:
+  - Wdrożono pętlę heartbeat `@asynccontextmanager` `lifespan` w FastAPI (`POST /v1/audio/register` co 15s).
+- **Czyszczenie Dokumentacji Fundamentowych (`docs/MANIFEST.md` & `docs/AGENT_GUIDE.md`)**:
+  - Usunięto sztuczne klasyfikacje "Warstw 1, 2, 3". Zaktualizowano §3.0 MANIFEST.md wprowadzając czysty podział na Klientów (Satelity), Providerów (LLM oraz Kanał Głosowy z worka zmysłów) oraz Integracje.
+- **Obiektowa Architektura Providerów i Wykonawczych Backendów**:
+  - Wyodrębniono silniki wykonawcze HTTP w [`src/controller/providers/audio/backends.py`](file:///d:/Projekty/Regis/src/controller/providers/audio/backends.py) (`AudioServiceSTTBackend` oraz `AudioServiceTTSBackend`).
+  - Stworzono dedykowany pakiet ról zmysłów w [`src/controller/core/providers/`](file:///d:/Projekty/Regis/src/controller/core/providers/) (`BaseProvider`, `STTProvider`, `TTSProvider`, `LLMProvider`).
+  - Usunięto przeciek detali transportowych (`host`, `port`) z `BaseProvider` — detale sieciowe leżą od teraz wyłącznie w silnikach `Backend`.
+- **Wyodrębnienie Zarządcy `VoiceChannel` (`src/controller/core/voice_channel.py`)**:
+  - Przeniesiono klasę `VoiceChannel` na właściwy poziom w rdzeniu Kontrolera (`src/controller/core/voice_channel.py`). Spaja ona aktywne obiekty `STTProvider` i `TTSProvider` z worka zmysłów i daje prosty interfejs transkrypcji i syntezy dla Orkiestratora.
+- **Weryfikacja i Testy Jednostkowe**:
+  - Zbudowano i zaktualizowano zestaw testów w [`tests/test_provider_registry.py`](file:///d:/Projekty/Regis/tests/test_provider_registry.py).
+  - Uruchomiono i zweryfikowano pełny pakiet pytest (**25 passed**, 0 failed w 5.88s).
 
 ## 2. Aktualny Stan Kodu & Architektura
-- Szablony HTML i pliki CSS/JS dla dashboardu (`views/dashboard.html`, `css/layout.css`, `css/components.css`, `renderer.js`) są w 100% zaktualizowane i gotowe pod nowy podział.
-- Kod Kontrolera i Klienta oczekuje na zakończenie refaktoryzacji `RegisDesktop` oraz bezpośredniej integracji Kontrolera z API Ollamy / Audio Service.
+- **Kontroler (`src/controller/`)**: Posiada czysty obiektowy podział na Rejestr Satelit (`client_registry.py`), Rejestr Zmysłów (`provider_registry.py`), Zarządcę Kanału Głosowego (`voice_channel.py`), Dostawców Zmysłów (`core/providers/`) oraz Silniki Wykonawcze (`providers/audio/backends.py` oraz `providers/llm/`).
+- **Audio Service (`src/audio_service/`)**: Samodzielny serwer HTTP FastAPI (`127.0.0.1:8002`) z obsługą Faster-Whisper oraz Pipera, rejestrujący swoje usługi mowy w Kontrolerze.
+- **Dokumentacja (`docs/MANIFEST.md` & `docs/AGENT_GUIDE.md`)**: W 100% odzwierciedlają czystą obiektową architekturę.
 
-## 3. Kroki Startowe Dla Następnego Agenta
-1. Wykonaj obowiązkową procedurę startową czytania plików (`docs/MANIFEST.md`, `docs/AGENT_GUIDE.md`, `.agents/HANDOFF.md`, `.agents/TASKS.md`).
-2. Potwierdź z użytkownikiem stan refaktoryzacji `RegisDesktop` (czy przeszedł w tryb 100% Satelity i czy Ollama/Audio Service są podłączone bezpośrednio pod Kontroler).
-3. Podłącz akcje edycyjne na frontendzie pod nowe endpointy Kontrolera (LLM, Audio Service, Satelity).
+## 3. Precyzyjne Kroki Startowe Dla Następnego Agenta
+1. Wykonaj obowiązkową procedurę startową czytania plików w tle (`docs/MANIFEST.md`, `docs/AGENT_GUIDE.md`, `.agents/HANDOFF.md`, `.agents/TASKS.md`).
+2. Przeprowadź refaktoryzację `OllamaBackend` w `src/controller/providers/llm/ollama.py` bez intermediate worker wrappers (podłączenie bezpośrednio do `http://localhost:11434/api/chat`).
+3. Podłącz akcje edycyjne na dashboardzie UI pod nowe endpointy Kontrolera.

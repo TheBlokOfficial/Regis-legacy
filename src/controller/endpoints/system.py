@@ -20,6 +20,8 @@ router_system = APIRouter()
 
 
 
+import controller.core.provider_registry as provider_registry
+
 async def get_status_snapshot() -> dict:
     """Zwraca aktualny stan systemu: węzły, satelity, integracje, zmysły, info o Kontrolerze."""
     uptime_s = int(time.time() - state.controller_start_time)
@@ -37,18 +39,31 @@ async def get_status_snapshot() -> dict:
 
     clients = list(client_registry.client_registry.values())
     workers = client_registry.get_llm_clients()
-    audio_workers = client_registry.get_audio_clients()
     satellites = client_registry.get_satellite_clients()
 
-    llm_count = len(workers)
-    stt_count = sum(1 for a in audio_workers if "stt_model_size" in a or "audio" in a)
-    tts_count = sum(1 for a in audio_workers if "tts_model_name" in a or "audio" in a)
-    
-    # Tryb pełny: przynajmniej 1 LLM (cloud/local)
-    full_mode = llm_count > 0
+    # Wyliczanie zmysłów z ProviderRegistry
+    active_stt = provider_registry.get_active_stt_provider()
+    active_tts = provider_registry.get_active_tts_provider()
+    active_llm = provider_registry.get_active_llm_provider()
+
+    stt_count = 1 if active_stt else 0
+    tts_count = 1 if active_tts else 0
+    llm_count = 1 if active_llm else 0
+
+    voice_channel_ready = provider_registry.is_voice_channel_ready()
+    full_mode = provider_registry.is_full_mode()
+
+    audio_workers = []
+    if active_stt or active_tts:
+        audio_workers.append({
+            "id": "audio-service-standalone",
+            "name": "Lokalny Audio Service",
+            "stt_model_size": getattr(active_stt, "model_size", "small") if active_stt else None,
+            "tts_model_name": getattr(active_tts, "voice_name", "pl_PL-darkman-medium") if active_tts else None,
+        })
 
     return {
-        "nodes": clients,  # Klucze zachowane dla kompatybilności z UI
+        "nodes": clients,
         "clients": clients,
         "workers": workers,
         "audio_workers": audio_workers,
@@ -58,9 +73,10 @@ async def get_status_snapshot() -> dict:
             "uptime_s": uptime_s,
             "ha_status": ha_status,
             "full_mode": full_mode,
+            "voice_channel_ready": voice_channel_ready,
             "llm_count": llm_count,
             "stt_count": stt_count,
-            "tts_count": tts_count
+            "tts_count": tts_count,
         }
     }
 

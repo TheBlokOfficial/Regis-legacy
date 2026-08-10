@@ -1,5 +1,49 @@
 # Lista Zadań Projektu Regis (TASKS)
 
+## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Przeniesienie `VoiceChannel` do `src/controller/core/voice_channel.py`)
+
+- [x] **Wyodrębnienie `VoiceChannel` na Właściwy Poziom Architektoniczny (`src/controller/core/voice_channel.py`)**:
+  - Klasa `VoiceChannel` została przeniesiona z pakietu `providers/` bezpośrednio do rdzenia `src/controller/core/voice_channel.py`.
+  - Pakiet `src/controller/core/providers/` zawiera od teraz **wyłącznie czystych dostawców zmysłów** (`base.py`, `stt.py`, `tts.py`, `llm.py`).
+- [x] **Testy Jednostkowe Architektury Obiektowej (`tests/test_provider_registry.py`)**:
+  - Uruchomiono i zaktualizowano zestaw testów pytest (**25/25 passed**).
+
+## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Modularyzacja Pakietu `providers/` i Wyczyszczenie Metadanych Sieciowych)
+
+- [x] **Modularyzacja Pakietu Ról Zmysłów (`src/controller/core/providers/`)**:
+  - Przekształcono plik monolithu `providers.py` w czysty pakiet z osobnymi plikami: `base.py`, `stt.py`, `tts.py`, `llm.py`, `voice_channel.py`, `__init__.py`.
+- [x] **Wyczyszczenie Metadanych `host` i `port` z `BaseProvider`**:
+  - Usunięto zbędny przeciek detali transportowych (`host`, `port`) z klasy bazowej `BaseProvider` — detale sieciowe leżą od teraz wyłącznie w obiektach wykonawczych `Backend`.
+- [x] **Testy Jednostkowe Architektury Obiektowej (`tests/test_provider_registry.py`)**:
+  - Uruchomiono i pozytywnie zweryfikowano pełny zestaw testów w pytest (**25/25 passed**).
+
+## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Rozdzielenie Ról Providerów i Backendów Executora)
+
+- [x] **Wyodrębnienie Modułu Backendów Audio (`src/controller/providers/audio/backends.py`)**:
+  - Utworzono klasy silników wykonawczych HTTP `AudioServiceSTTBackend` oraz `AudioServiceTTSBackend`.
+- [x] **Czysta Hermetyzacja w Providerach (`src/controller/core/providers.py`)**:
+  - Klasy `STTProvider`, `TTSProvider` oraz `LLMProvider` reprezentują abstrakcyjne role zmysłów dla Orkiestratora i hermetyzują przypisany `backend`.
+  - Zarządca `VoiceChannel` spaja `STTProvider` oraz `TTSProvider`.
+- [x] **Testy Jednostkowe Architektury (`tests/test_provider_registry.py`)**:
+  - Przeprowadzono zestaw testów pytest (**25/25 passed**).
+
+## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Wdrożenie Samodzielnego Daemona Audio Service)
+
+- [x] **Utworzenie Dedykowanego Daemona Audio Service (`src/audio_service/`)**:
+  - Zbudowano moduły `stt.py` (Faster-Whisper), `tts.py` (Piper) oraz serwer HTTP `main.py` (FastAPI) na porcie `127.0.0.1:8002`.
+  - Wystawiono wyizolowane endpointy REST `/v1/stt/transcribe` oraz `/v1/tts/synthesize`.
+- [x] **Integracja z Kontrolerem i Testy Jednostkowe (`src/controller/core/client_registry.py` & `tests/test_audio_service.py`)**:
+  - Kontroler domyślnie odpytuje stacjonarny `Audio Service` (`127.0.0.1:8002`) w przypadku braku dynamicznych workerów.
+  - Napisano i zweryfikowano pakiet 5 testów jednostkowych w `tests/test_audio_service.py` (22/22 testy przeszły pomyślnie).
+
+## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Refaktoryzacja RegisDesktop w Czystego Demona Satelity Desktopowej)
+
+- [x] **Przekształcenie Klienta w Czystego Demona Satelity (`src/client/main.py`, `network/client_registry.py`, `ws_dispatcher.py`)**:
+  - Wycięto zarządcę podprocesów workerów (`process_manager.py`). Klient rejestruje się wyłączenie jako Satelita Desktopowa (`satellite`).
+  - Uproszczono rejestrację przez WebSocket oraz pętlę podtrzymywania zmysłu mowy i VAD.
+- [x] **Testy Jednostkowe Rejestracji Satelity Desktopowej (`tests/test_client_registry.py`)**:
+  - Dodano i pozytywnie zweryfikowano test `test_desktop_satellite_registration` w zestawie pytest.
+
 ## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Przebudowa Dashboardu: 3 Symetryczne Kafelki & Statusy LED)
 
 - [x] **Układ 3 Symetrycznych Kafelków w Rzędzie (`src/controller/web/views/dashboard.html` & `css/layout.css`)**:

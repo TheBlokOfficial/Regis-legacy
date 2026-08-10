@@ -5,11 +5,6 @@ import asyncio
 from client.config import (
     save_settings, _get_settings, _get_client_id
 )
-from client.process_manager import (
-    control_service, ProcessAction, ProcessStatus,
-    get_active_services_registration, get_all_services_status,
-    DISPLAY_NAMES
-)
 from protocol.schemas import (
     ClientRegistrationRequest, ServiceName
 )
@@ -22,61 +17,59 @@ _last_applied_config: dict | None = None
 
 def apply_service_config(config_data: dict, from_registration: bool = False) -> None:
     """
-    Aplikuje profil konfiguracji usług otrzymany z Kontrolera i synchronizuje stany podprocesów.
-    Startuje nowe usługi, przeładowuje zmodyfikowane oraz zatrzymuje odznaczone usługi.
+    Aplikuje profil konfiguracji otrzymany z Kontrolera (Web UI).
+    Zapisuje ustawienia tożsamości klienta (name, room) oraz parametry Satelity.
     """
     global _last_applied_config
     if _last_applied_config == config_data:
         return
     _last_applied_config = config_data
 
-    # Zapisz tylko imię (jeśli uległo zmianie) – to element tożsamości
-    if "name" in config_data:
-        settings = _get_settings()
-        if settings.get("instance_name") != config_data["name"]:
-            settings["instance_name"] = config_data["name"]
-            save_settings(settings)
+    settings = _get_settings()
+    modified = False
+
+    if "name" in config_data and settings.get("instance_name") != config_data["name"]:
+        settings["instance_name"] = config_data["name"]
+        modified = True
+
+    if "room" in config_data and settings.get("room") != config_data["room"]:
+        settings["room"] = config_data["room"]
+        modified = True
 
     services = config_data.get("services", {})
-    enabled_list = [DISPLAY_NAMES.get(s, s) for s in services.keys()]
-    enabled_str = ", ".join(enabled_list) if enabled_list else "brak"
+    if "satellite" in services:
+        sat_cfg = services["satellite"]
+        if isinstance(sat_cfg, dict):
+            for k in ("room", "wakeword_threshold", "silence_timeout_ms"):
+                if k in sat_cfg and settings.get(k) != sat_cfg[k]:
+                    settings[k] = sat_cfg[k]
+                    modified = True
+
+    if modified:
+        save_settings(settings)
 
     if not from_registration:
-        logger.info(f"[Klient] Zastosowano nową konfigurację z Kontrolera (Web UI). Aktywne usługi: {enabled_str}.")
-
-    # Pętla synchronizacji podprocesów mikrousług z wykorzystaniem silnych typów
-    active_statuses = get_all_services_status()
-    target_services = [
-        ServiceName.OLLAMA_WORKER.value,
-        ServiceName.STT_WORKER.value,
-        ServiceName.TTS_WORKER.value,
-        ServiceName.SATELLITE.value,
-        "worker", "llm", "audio"
-    ]
-
-    for s_name in target_services:
-        display_label = DISPLAY_NAMES.get(s_name, s_name.capitalize())
-        if s_name in services:
-            if active_statuses.get(s_name) == ProcessStatus.RUNNING:
-                if not from_registration:
-                    logger.info(f"[Klient] Przeładowuję usługę: {display_label}")
-                    control_service(s_name, ProcessAction.RESTART, services[s_name])
-            else:
-                logger.info(f"[Klient] Uruchamiam usługę: {display_label}")
-                control_service(s_name, ProcessAction.START, services[s_name])
-        else:
-            if active_statuses.get(s_name) == ProcessStatus.RUNNING:
-                logger.info(f"[Klient] Wyłączam usługę: {display_label}")
-                control_service(s_name, ProcessAction.STOP)
-    
-    if not from_registration:
+        logger.info("[Klient] Zastosowano nową konfigurację Satelity z Kontrolera (Web UI).")
         register()
 
 
+def get_satellite_service_registration() -> dict:
+    """Zwraca słownik konfiguracji zmysłu Satelity dla ramki rejestracyjnej."""
+    settings = _get_settings()
+    return {
+        ServiceName.SATELLITE.value: {
+            "room": settings.get("room", "pracownia"),
+            "node_type": "desktop",
+            "capabilities": ["audio_in", "audio_out", "text"],
+            "wakeword_local": True,
+            "wakeword_threshold": settings.get("wakeword_threshold", 0.65),
+            "silence_timeout_ms": settings.get("silence_timeout_ms", 1500),
+        }
+    }
 
 
 def register() -> None:
-    """Wysyła ramkę rejestracyjną Aplikacji Klienckiej przez podłączone gniazdo WebSocket."""
+    """Wysyła ramkę rejestracyjną Satelity Desktopowej przez gniazdo WebSocket."""
     ws_loop = get_ws_loop()
     ws_client = get_ws_client()
     
@@ -86,12 +79,12 @@ def register() -> None:
 
     client_id = _get_client_id()
     settings = _get_settings()
-    instance_name = settings.get("instance_name") or client_id
+    instance_name = settings.get("instance_name") or f"Desktop-{client_id[:6]}"
     reg_request = ClientRegistrationRequest(
         id=client_id,
         name=instance_name,
         host=get_local_ip(),
-        services=get_active_services_registration(),
+        services=get_satellite_service_registration(),
     )
     
     payload = json.dumps({
@@ -100,7 +93,7 @@ def register() -> None:
     })
     
     asyncio.run_coroutine_threadsafe(ws_client.send(payload), ws_loop)
-    logger.info(f"Przesłano ramkę rejestracji Klienta '{client_id}' przez WebSocket.")
+    logger.info(f"Przesłano ramkę rejestracji Satelity Desktopowej '{client_id}' przez WebSocket.")
 
 
 def unregister() -> None:

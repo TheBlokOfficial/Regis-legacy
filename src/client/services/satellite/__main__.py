@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import threading
 
 from protocol.schemas import SatelliteConfig, SatelliteAction, ServiceState
 from client.config import DATA_DIR
@@ -231,6 +232,18 @@ async def main():
     _setup_logging()
     service = SatelliteService()
     await service.start()
+
+def start_satellite_thread():
+    """Uruchamia usługę Satelity w osobnym wątku tła (daemon)."""
+    def _run():
+        try:
+            asyncio.run(main())
+        except (KeyboardInterrupt, SystemExit):
+            pass
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return t
+
 
 if __name__ == "__main__":
     try:

@@ -103,6 +103,77 @@ async def send_client_command(client_id: str, command: str, payload: dict) -> di
     return {"status": "pending", "client_id": client_id, "command": command}
 
 
+class AudioServiceRegisterRequest(BaseModel):
+    id: str = "audio-service-standalone"
+    name: str = "Lokalny Audio Service (Faster-Whisper + Piper)"
+    host: str = "127.0.0.1"
+    port: int = 8002
+    stt_model_size: str = "small"
+    tts_model_name: str = "pl_PL-darkman-medium"
+
+
+@router_clients.post("/v1/audio/register")
+@router_clients.post("/v1/clients/audio_ping")
+async def register_audio_service(req: AudioServiceRegisterRequest):
+    """Rejestracja/Heartbeat dla stacjonarnego daemona Audio Service w ProviderRegistry."""
+    import controller.core.provider_registry as provider_registry
+    client_id = req.id
+    is_new = client_id not in client_registry.client_registry
+    
+    # 1. Zapis w rejestrze pomocniczym
+    client_registry.client_registry[client_id] = {
+        "id": client_id,
+        "name": req.name,
+        "host": req.host,
+        "port": req.port,
+        "base_url": f"http://{req.host}:{req.port}",
+        "services": {
+            "stt_worker": {"stt_model_size": req.stt_model_size, "port": req.port},
+            "tts_worker": {"tts_model_name": req.tts_model_name, "port": req.port},
+        },
+        "last_seen": time.time(),
+    }
+
+    # 2. Rejestracja niezależnych obiektów zmysłów i ich backendów w ProviderRegistry
+    from controller.core.providers import STTProvider, TTSProvider
+    from controller.providers.audio.backends import AudioServiceSTTBackend, AudioServiceTTSBackend
+
+    stt_backend = AudioServiceSTTBackend(
+        id=f"{client_id}-stt",
+        name=f"Faster-Whisper ({req.stt_model_size})",
+        host=req.host,
+        port=req.port,
+        model_size=req.stt_model_size,
+    )
+    tts_backend = AudioServiceTTSBackend(
+        id=f"{client_id}-tts",
+        name=f"Piper ({req.tts_model_name})",
+        host=req.host,
+        port=req.port,
+        voice_name=req.tts_model_name,
+    )
+
+    provider_registry.register_stt_provider(STTProvider(
+        id=f"{client_id}-stt",
+        name=f"Faster-Whisper ({req.stt_model_size})",
+        backend=stt_backend,
+    ))
+    provider_registry.register_tts_provider(TTSProvider(
+        id=f"{client_id}-tts",
+        name=f"Piper ({req.tts_model_name})",
+        backend=tts_backend,
+    ))
+
+    if is_new:
+        logging.info(f"[Kontroler] Zarejestrowano zmysły mowy w ProviderRegistry: {req.name} ({req.host}:{req.port})")
+        await message_bus.publish(ClientRegisteredMessage(
+            client_id=client_id,
+            client_type="http",
+            name=req.name
+        ))
+    return {"status": "ok", "registered": True}
+
+
 @router_clients.get("/v1/clients/supported_models")
 async def get_supported_models():
     """Zwraca oficjalną listę wspieranych modeli Regis dla Klientów."""

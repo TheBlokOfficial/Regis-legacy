@@ -4,7 +4,6 @@ from typing import Any, Callable
 
 import client.service_bus as service_bus
 from client.network.client_registry import apply_service_config
-from client.process_manager import get_all_services_status
 from protocol.schemas import WSCommand, WSCommandResult
 
 logger = logging.getLogger(__name__)
@@ -23,7 +22,7 @@ async def _cmd_config(payload: dict) -> dict:
 
 
 async def _cmd_status(payload: dict) -> dict:
-    return {"success": True, "result": get_all_services_status()}
+    return {"success": True, "result": {"satellite": "running"}}
 
 
 SYSTEM_COMMAND_HANDLERS = {

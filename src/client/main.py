@@ -15,7 +15,6 @@ if sys.platform == "win32":
 
 from client import controller_api
 from client.logger import setup_logging
-from client.process_manager import cleanup_orphaned_processes, stop_all_services
 from client.tray import create_default_icon, get_menu
 
 app_tray: pystray.Icon | None = None
@@ -23,11 +22,7 @@ _instance_socket: socket.socket | None = None
 
 
 def ensure_single_instance(port: int = 47829) -> None:
-    """Sprawdza czy kolejna instancja Regis Client nie jest już uruchomiona w systemie.
-
-    Korzysta z zamka gniazda na pętli zwrotnej (127.0.0.1). Jeśli port jest zajęty,
-    aplikacja wypisuje komunikat i natychmiast się wyłącza.
-    """
+    """Sprawdza czy kolejna instancja Regis Satellite Daemon nie jest już uruchomiona w systemie."""
     global _instance_socket
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -35,13 +30,12 @@ def ensure_single_instance(port: int = 47829) -> None:
         s.listen(1)
         _instance_socket = s
     except OSError:
-        print("[Single Instance] Aplikacja Regis Client jest już uruchomiona w tle.")
+        print("[Single Instance] Satelita Desktopowa Regis jest już uruchomiona w tle.")
         sys.exit(0)
 
 
 def quit_all(icon=None) -> None:
-    """Zatrzymuje wszystkie procesy potomne, wyrejestrowuje klienta i zamyka aplikację w zasobniku."""
-    stop_all_services()
+    """Wyrejestrowuje klienta i zamyka aplikację Satelity w zasobniku."""
     controller_api.unregister()
     if app_tray:
         app_tray.stop()
@@ -60,7 +54,7 @@ def setup_signal_handlers() -> None:
         signal.signal(signal.SIGTERM, lambda signum, frame: quit_all())
         signal.signal(signal.SIGINT, lambda signum, frame: quit_all())
     except ValueError:
-        pass  # Ignoruj jeśli nie jesteśmy w głównym wątku
+        pass
 
     if sys.platform == "win32":
         try:
@@ -79,27 +73,31 @@ def setup_signal_handlers() -> None:
 
 
 def main() -> None:
-    """Główny punkt wejścia (Entry Point) aplikacji klienckiej Regis."""
+    """Główny punkt wejścia (Entry Point) aplikacji Satelity Desktopowej Regis."""
     global app_tray
 
     # 0. Zabezpieczenie przed podwójnym uruchomieniem
     ensure_single_instance()
 
-    # 1. Inicjalizacja lokalna aplikacji
+    # 1. Inicjalizacja lokalna aplikacji i logowania
     setup_logging("client")
-    cleanup_orphaned_processes()
     setup_signal_handlers()
 
+    # 2. Uruchomienie lokalnego proxy dla zdarzeń satelity
     from client.internal_proxy import start_internal_proxy_thread
     start_internal_proxy_thread()
 
-    # 2. Uruchomienie stałego połączenia WebSocket dla zdarzeń czasu rzeczywistego i auto-rejestracji
+    # 3. Uruchomienie stałego połączenia WebSocket z Kontrolerem
     ws_thread = threading.Thread(target=controller_api.start_ws_client, daemon=True)
     ws_thread.start()
     controller_api.wait_for_ws_connection(timeout=3.0)
 
-    # 5. Uruchomienie zasobnika systemowego (pętla główna)
-    app_tray = pystray.Icon("regis_client", create_default_icon(), "Regis", menu=get_menu(quit_all))
+    # 4. Uruchomienie silnika audio Satelity (VAD, WakeWord, Audio Player)
+    from client.services.satellite.__main__ import start_satellite_thread
+    start_satellite_thread()
+
+    # 5. Uruchomienie pętli ikony w zasobniku systemowym (system tray)
+    app_tray = pystray.Icon("regis_client", create_default_icon(), "Regis Satellite", menu=get_menu(quit_all))
     app_tray.run()
 
 
