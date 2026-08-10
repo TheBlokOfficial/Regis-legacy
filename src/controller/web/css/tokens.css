@@ -7,21 +7,22 @@
 
 :root {
     --bg:          #0f0f0f;
-    --bg-card:     #161616;
-    --bg-card-alt: #1c1c1c;
-    --border:      #2a2a2a;
-    --border-light:#3a3a3a;
-    --text:        #e0e0e0;
-    --text-dim:    #555;
-    --text-meta:   #888;
+    --bg-card:     #141414;
+    --bg-card-alt: #18181b;
+    --border:      #27272a;
+    --border-light:#3f3f46;
+    --text:        #ffffff;
+    --text-dim:    #666666;
+    --text-meta:   #888888;
     --online:      #4caf4c;
-    --offline:     #c0392b;
-    --btn:         #242424;
-    --btn-hover:   #333333;
+    --offline:     #e07070;
+    --btn:         #27272a;
+    --btn-hover:   #3f3f46;
     --btn-danger:  #3a1212;
     --btn-danger-hover: #4a1818;
-    --font:        'IBM Plex Mono', 'Courier New', monospace;
-    --radius:      4px;
+    --font:        -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono:   'IBM Plex Mono', 'Courier New', monospace;
+    --radius:      8px;
 }
 
 *, *::before, *::after {

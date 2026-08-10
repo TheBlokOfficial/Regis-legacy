@@ -1,13 +1,20 @@
 # Lista Zadań Projektu Regis (TASKS)
 
-## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Dashboard 2.0 i Refaktoryzacja UX Pulpitu)
+## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Asymetryczny Bento Grid, Reaktywność SSE i Audyt UI/UX Pulpitu)
 
-- [x] **Pulpit Systemu (Dashboard 2.0) wg Architektury 3-Warstwowej (`src/controller/web/views/dashboard.html`)**:
-  - Przebudowano układ Pulpitu na 4 czytelne sekcje funkcjonalne (*Zmysły & Dostawcy*, *Satelity*, *Integracje*, *Aplikacje Klienckie RegisDesktop*).
-- [x] **Rozdzielenie Usług RegisDesktop w UI (`src/controller/web/renderer.js` & `api.js`)**:
-  - Wyciągnięto mikrousługi z aplikacji `RegisDesktop` (Ollama, Faster-Whisper, Piper, Satelita) i umieszczono je w ich odpowiednich sekcjach funkcjonalnych Zmysłów i Satelitów.
-- [x] **Centrum Sterowania Węzłami RegisDesktop (`src/controller/web/views/dashboard.html`)**:
-  - Zachowano dedykowaną sekcję zarządczą dla połączonych instancji `RegisDesktop` z przyciskiem `[KONFIGURUJ]` otwierającym modal sterowania podprocesami.
+- [x] **Asymetryczny Layout Bento Grid (~60% / 40%) (`src/controller/web/views/dashboard.html` & `css/layout.css`)**:
+  - Przebudowano siatkę Pulpitu z ciasnych 4 kolumn w 1 rzędzie na dwukolumnowy układ Bento Grid (`1.4fr 1fr`).
+  - Lewa szeroka kolumna (~640px) wyeliminowała ciasnotę horyzontalną Zmysłów i łamanie nazw urządzeń/modeli.
+  - Prawa kolumna (~440px) połączyła Satelity i Integracje, znosząc poszarpany "efekt schodkowy".
+- [x] **Eliminacja Szumu Wizualnego, Emotikonów i Ramkowości (`src/controller/web/css/components.css` & `renderer.js`)**:
+  - Usunięto kiczowate emotikony emoji ze wszystkich nagłówków sekcji Zmysłów.
+  - Zlikwidowano podwójne zagnieżdżenia ramek na rzecz czystej architektury bezramkowej.
+  - Zastąpiono etykiety CAPS LOCK (`LOKALNY`, `ONLINE`, `CISZA`, `KONFIGURUJ`) estetycznymi pigułkami (`Lokalny`, `Online`, `Cisza`) i lekkimi przyciskami `.btn-ghost` (`Konfiguruj`, `Edytuj`).
+- [x] **Pomocniczy Banner Stanu Pustego (`src/controller/web/css/components.css` & `renderer.js`)**:
+  - Wdrożono komponent `.empty-banner` w sekcji Zmysłów informujący o pracy w `TRYBIE FALLBACK` i podpowiadający instrukcję aktywacji.
+- [x] **Reaktywne Odświeżanie Live SSE Bez F5 (`src/controller/web/api.js` & `events.js`)**:
+  - Zbudowano funkcję `refreshDashboardStatus()` i podłączono ją pod zdarzenia `client_registered`, `client_unregistered` i `client_updated`.
+  - Rozłączenie lub podłączenie klienta `RegisDesktop` natychmiastowo czyści lub dodaje karty na żywo bez potrzeby wciskania F5.
 - [x] **Wskaźnik Dwustanowej Degradacji (`src/controller/web/renderer.js` & `css/components.css`)**:
   - Wdrożono odznakę `badge-readiness` sygnalizującą stan `TRYB PEŁNY (ReAct)` vs `TRYB FALLBACK (Offline NLU)`.
 - [x] **Rozszerzenie Snapshotu REST (`src/controller/endpoints/system.py`)**:

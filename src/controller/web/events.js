@@ -19,6 +19,7 @@ import {
 } from './renderer.js';
 import { fmtTime, truncate } from './utils.js';
 import { getActiveSatelliteId, loadSessionHistory, loadSatellitesForSelect, isChatStreaming } from './chat.js';
+import { refreshDashboardStatus } from './api.js';
 
 export function handleEvent(event) {
     const now = fmtTime(event.timestamp || null);
@@ -29,6 +30,7 @@ export function handleEvent(event) {
         case "client_updated": {
             const node = event.client || event;
             renderNodeCard(node);
+            refreshDashboardStatus();
             if (event.type === "client_registered" && !event.is_history) {
                 appendLog(now, "[INFO]", `Zarejestrowano klienta RegisDesktop: ${node.name || node.id}`, "online");
             }
@@ -44,6 +46,7 @@ export function handleEvent(event) {
                 removeSatellite(event.id);
                 markSatelliteOffline(event.id);
             }
+            refreshDashboardStatus();
             if (!event.is_history) appendLog(now, "[OFFLINE]", `RegisDesktop ${event.id} został odłączony`, "offline");
             break;
         }

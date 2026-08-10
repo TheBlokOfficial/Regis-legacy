@@ -38,8 +38,8 @@ export function renderIntegrationCard(integration) {
     const type   = integration.type || "—";
     const detail = integration.detail || "—";
 
-    const labels = { online: "ONLINE", offline: "OFFLINE", unknown: "—" };
-    const badgeText = labels[status] || status.toUpperCase();
+    const labels = { online: "Online", offline: "Offline", unknown: "—" };
+    const badgeText = labels[status] || status;
 
     card.id        = `integration-${id}`;
     card.className = "list-row";
@@ -126,13 +126,16 @@ export function renderNodeCard(node) {
     card.innerHTML = `
         <span class="dot online"></span>
         <div class="list-info">
-            <span class="list-title">${escHtml(name)}</span>
-            <span class="list-meta">ID: ${escHtml(id)} | Host: ${escHtml(host)}</span>
-            <div style="margin-top:6px;">${tagsHtml}</div>
+            <div class="list-title-group">
+                <span class="list-title">${escHtml(name)}</span>
+                <span class="node-chip">${escHtml(id)}</span>
+            </div>
+            <span class="list-meta">Host: ${escHtml(host)}</span>
+            <div style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;">${tagsHtml}</div>
         </div>
         <div class="list-actions">
-            <button class="btn btn-configure-node" id="btn-config-${id}">
-                KONFIGURUJ
+            <button class="btn btn-ghost" id="btn-config-${id}">
+                Konfiguruj
             </button>
         </div>
     `;
@@ -165,7 +168,7 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
     // 1. Sekcja LLM (Mózg)
     const hasLlm = (cloudProviders && cloudProviders.length > 0) || (llmWorkers && llmWorkers.length > 0);
     if (hasLlm) {
-        html += `<div style="padding: 8px 16px; font-size: 13px; font-weight: 600; color: var(--text-meta); background: var(--bg-card-alt); border-bottom: 1px solid var(--border);">🧠 MODEL JĘZYKOWY (LLM)</div>`;
+        html += `<div class="category-subhead">Model Językowy (LLM)</div>`;
         
         (cloudProviders || []).forEach(cp => {
             totalCount++;
@@ -173,11 +176,14 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
                 <div class="list-row">
                     <span class="dot online"></span>
                     <div class="list-info">
-                        <span class="list-title">${escHtml(cp.id)}</span>
-                        <span class="list-meta">Chmura (${escHtml(cp.type)}) | Model: ${escHtml(cp.model)}</span>
+                        <div class="list-title-group">
+                            <span class="list-title">${escHtml(cp.id)}</span>
+                            <span class="node-chip">Chmura (${escHtml(cp.type)})</span>
+                        </div>
+                        <span class="list-meta">Model: ${escHtml(cp.model)}</span>
                     </div>
                     <div class="list-actions">
-                        <button class="btn btn-edit-cp" data-id="${escHtml(cp.id)}" style="font-size: 13px;">EDYTUJ</button>
+                        <button class="btn btn-ghost btn-edit-cp" data-id="${escHtml(cp.id)}">Edytuj</button>
                     </div>
                 </div>
             `;
@@ -190,11 +196,14 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
                 <div class="list-row">
                     <span class="dot online"></span>
                     <div class="list-info">
-                        <span class="list-title">Ollama (${escHtml(w.id)})</span>
-                        <span class="list-meta">RegisDesktop (${escHtml(w.host)}) | Model: ${escHtml(modelName)}</span>
+                        <div class="list-title-group">
+                            <span class="list-title">Ollama</span>
+                            <span class="node-chip">${escHtml(w.id)}</span>
+                        </div>
+                        <span class="list-meta">RegisDesktop (${escHtml(w.host)}) • Model: ${escHtml(modelName)}</span>
                     </div>
                     <div class="list-actions">
-                        <span class="badge online">LOKALNY</span>
+                        <span class="badge online">Lokalny</span>
                     </div>
                 </div>
             `;
@@ -204,7 +213,7 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
     // 2. Sekcja STT (Słuch)
     const sttWorkers = (audioWorkers || []).filter(a => a.stt_model_size || a.services?.stt_worker);
     if (sttWorkers.length > 0) {
-        html += `<div style="padding: 8px 16px; font-size: 13px; font-weight: 600; color: var(--text-meta); background: var(--bg-card-alt); border-bottom: 1px solid var(--border);">👂 TRANSKRYPCJA MOWY (STT)</div>`;
+        html += `<div class="category-subhead">Transkrypcja Mowy (STT)</div>`;
         sttWorkers.forEach(a => {
             totalCount++;
             const sttSize = a.stt_model_size || "small";
@@ -212,11 +221,14 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
                 <div class="list-row">
                     <span class="dot online"></span>
                     <div class="list-info">
-                        <span class="list-title">Faster-Whisper (${escHtml(a.id)})</span>
-                        <span class="list-meta">RegisDesktop (${escHtml(a.host)}) | Rozmiar: ${escHtml(sttSize)}</span>
+                        <div class="list-title-group">
+                            <span class="list-title">Faster-Whisper</span>
+                            <span class="node-chip">${escHtml(a.id)}</span>
+                        </div>
+                        <span class="list-meta">RegisDesktop (${escHtml(a.host)}) • Rozmiar: ${escHtml(sttSize)}</span>
                     </div>
                     <div class="list-actions">
-                        <span class="badge online">LOKALNY</span>
+                        <span class="badge online">Lokalny</span>
                     </div>
                 </div>
             `;
@@ -226,7 +238,7 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
     // 3. Sekcja TTS (Mowa)
     const ttsWorkers = (audioWorkers || []).filter(a => a.tts_model_name || a.services?.tts_worker);
     if (ttsWorkers.length > 0) {
-        html += `<div style="padding: 8px 16px; font-size: 13px; font-weight: 600; color: var(--text-meta); background: var(--bg-card-alt); border-bottom: 1px solid var(--border);">🗣️ SYNTEZA MOWY (TTS)</div>`;
+        html += `<div class="category-subhead">Synteza Mowy (TTS)</div>`;
         ttsWorkers.forEach(a => {
             totalCount++;
             const ttsModel = a.tts_model_name || "piper";
@@ -234,11 +246,14 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
                 <div class="list-row">
                     <span class="dot online"></span>
                     <div class="list-info">
-                        <span class="list-title">Piper (${escHtml(a.id)})</span>
-                        <span class="list-meta">RegisDesktop (${escHtml(a.host)}) | Głos: ${escHtml(ttsModel)}</span>
+                        <div class="list-title-group">
+                            <span class="list-title">Piper</span>
+                            <span class="node-chip">${escHtml(a.id)}</span>
+                        </div>
+                        <span class="list-meta">RegisDesktop (${escHtml(a.host)}) • Głos: ${escHtml(ttsModel)}</span>
                     </div>
                     <div class="list-actions">
-                        <span class="badge online">LOKALNY</span>
+                        <span class="badge online">Lokalny</span>
                     </div>
                 </div>
             `;
@@ -246,7 +261,19 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
     }
 
     if (!html) {
-        container.innerHTML = '<div class="empty-state">Brak skonfigurowanych dostawców zmysłów.</div>';
+        container.innerHTML = `
+            <div class="empty-banner">
+                <span class="banner-title">System działa w TRYBIE FALLBACK (Offline NLU)</span>
+                <span class="banner-desc">Brak aktywnego dostawcy zmysłów. Uruchom aplikację <strong>RegisDesktop</strong> na komputerze lub dodaj dostawcę chmurowego, aby odblokować pełny tryb ReAct.</span>
+                <div class="banner-actions">
+                    <button class="btn btn-ghost" id="banner-add-cloud-btn">+ Dodaj Chmurę</button>
+                </div>
+            </div>
+        `;
+        const bannerBtn = container.querySelector('#banner-add-cloud-btn');
+        if (bannerBtn) {
+            bannerBtn.addEventListener('click', () => openCloudProviderModal());
+        }
     } else {
         container.innerHTML = html;
         container.querySelectorAll('.btn-edit-cp').forEach(btn => {
@@ -288,11 +315,14 @@ export function renderSatellitesList(satellites = []) {
             <div class="list-row satellite-card" id="sat-card-${escHtml(id)}">
                 <span class="dot online"></span>
                 <div class="list-info">
-                    <span class="list-title">Satelita (${escHtml(id)})</span>
-                    <span class="list-meta">Pokój: ${escHtml(room)} | Typ: ${escHtml(type)}</span>
+                    <div class="list-title-group">
+                        <span class="list-title">Satelita</span>
+                        <span class="node-chip">${escHtml(id)}</span>
+                    </div>
+                    <span class="list-meta">Pokój: ${escHtml(room)} • Typ: ${escHtml(type)}</span>
                 </div>
                 <div class="list-actions">
-                    <span class="vad-status" id="vad-${escHtml(id)}">CISZA</span>
+                    <span class="vad-status" id="vad-${escHtml(id)}">Cisza</span>
                 </div>
             </div>
         `;
@@ -332,13 +362,13 @@ export function updateSatelliteVAD(satId, eventType) {
     if (!el) return;
 
     if (eventType === "vad_speech") {
-        el.textContent = "MOWA";
+        el.textContent = "Mowa";
         el.className   = "vad-status active";
     } else if (eventType === "wakeword") {
-        el.textContent = "WAKEWORD";
+        el.textContent = "Wakeword";
         el.className   = "vad-status active";
     } else if (eventType === "vad_silence") {
-        el.textContent = "CISZA";
+        el.textContent = "Cisza";
         el.className   = "vad-status";
     }
 }

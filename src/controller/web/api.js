@@ -75,6 +75,44 @@ export async function init() {
 
 // ── Ticker & Sync Uptime (inkrementacja co 1s + sync z REST co 15s) ──────────
 
+export async function refreshDashboardStatus() {
+    try {
+        const data = await fetch("/api/status").then(r => r.json());
+        const cloudProviders = await fetchCloudProviders().catch(() => []);
+        const ctrl = data.controller || {};
+
+        updateSystemReadiness(ctrl);
+
+        if (ctrl.uptime_s !== undefined) {
+            _currentUptimeS = ctrl.uptime_s;
+            document.getElementById("uptime").textContent = fmtUptime(_currentUptimeS);
+        }
+
+        if (data.integrations && data.integrations.length > 0) {
+            renderIntegrationsList(data.integrations);
+        } else {
+            updateHAStatus(ctrl.ha_status || "unknown");
+        }
+
+        renderProvidersList(cloudProviders, data.workers || [], data.audio_workers || []);
+        renderSatellitesList(data.satellites || []);
+
+        const nodesBody = document.getElementById("nodes-tree-body");
+        if (nodesBody) {
+            nodesBody.innerHTML = "";
+            if (!data.clients || data.clients.length === 0) {
+                nodesBody.innerHTML = '<div class="empty-state">Brak zarejestrowanych klientów RegisDesktop.</div>';
+                const countEl = document.getElementById("worker-count");
+                if (countEl) countEl.textContent = "0";
+            } else {
+                (data.clients || []).forEach(c => {
+                    renderNodeCard({ ...c, status: "online" });
+                });
+            }
+        }
+    } catch (_) {}
+}
+
 function _startUptimeTicker() {
     // Lokalny zegar 1-sekundowy
     setInterval(() => {
@@ -85,29 +123,7 @@ function _startUptimeTicker() {
     }, 1000);
 
     // Synchronizacja z serwerem co 15 sekund
-    setInterval(async () => {
-        try {
-            const data = await fetch("/api/status").then(r => r.json());
-            const cloudProviders = await fetchCloudProviders().catch(() => []);
-            const ctrl = data.controller || {};
-
-            updateSystemReadiness(ctrl);
-
-            if (ctrl.uptime_s !== undefined) {
-                _currentUptimeS = ctrl.uptime_s;
-                document.getElementById("uptime").textContent = fmtUptime(_currentUptimeS);
-            }
-            if (data.integrations && data.integrations.length > 0) {
-                renderIntegrationsList(data.integrations);
-            } else {
-                updateHAStatus(ctrl.ha_status || "unknown");
-            }
-
-            renderProvidersList(cloudProviders, data.workers || [], data.audio_workers || []);
-            renderSatellitesList(data.satellites || []);
-
-        } catch (_) {}
-    }, 15_000);
+    setInterval(refreshDashboardStatus, 15_000);
 }
 
 // ── Połączenie SSE ─────────────────────────────────────────────────────────

@@ -26,51 +26,45 @@
     </div>
     
     <div class="dashboard-grid">
-        <!-- Sekcja 1: Zmysły & Dostawcy (LLM, STT, TTS) -->
-        <div class="dashboard-col">
-            <div>
-                <div class="view-header" style="padding-bottom: 8px; margin-bottom: 16px;">
-                    <h2 style="font-size: 18px;">Zmysły &amp; Dostawcy</h2>
-                    <button class="btn" id="add-cloud-provider-btn" style="margin-left: auto; font-size: 13px;">+ Dodaj Chmurę</button>
+        <!-- Lewa Kolumna (~60%): Zmysły & Dostawcy oraz Aplikacje Klienckie -->
+        <div class="dashboard-col dashboard-main-col">
+            <div class="dashboard-card-section">
+                <div class="dashboard-section-header">
+                    <h3>Zmysły &amp; Dostawcy</h3>
+                    <button class="btn btn-ghost" id="add-cloud-provider-btn">+ Dodaj Chmurę</button>
                 </div>
                 <div class="list-container" id="providers-tree-body">
                     <div class="empty-state">Brak skonfigurowanych dostawców zmysłów.</div>
                 </div>
             </div>
+
+            <div class="dashboard-card-section">
+                <div class="dashboard-section-header">
+                    <h3>Aplikacje Klienckie</h3>
+                </div>
+                <div class="list-container" id="nodes-tree-body">
+                    <div class="empty-state">Brak zarejestrowanych klientów RegisDesktop.</div>
+                </div>
+            </div>
         </div>
 
-        <!-- Sekcja 2: Satelity (Kanały We/Wy) -->
-        <div class="dashboard-col">
-            <div>
-                <div class="view-header" style="padding-bottom: 8px; margin-bottom: 16px;">
-                    <h2 style="font-size: 18px;">Satelity (Kanały We/Wy)</h2>
+        <!-- Prawa Kolumna (~40%): Satelity oraz Integracje -->
+        <div class="dashboard-col dashboard-side-col">
+            <div class="dashboard-card-section">
+                <div class="dashboard-section-header">
+                    <h3>Satelity</h3>
                 </div>
                 <div class="list-container" id="satellites-tree-body">
                     <div class="empty-state">Brak zarejestrowanych satelitów.</div>
                 </div>
             </div>
-        </div>
 
-        <!-- Sekcja 3: Integracje (Warstwa 3) -->
-        <div class="dashboard-col">
-            <div>
-                <div class="view-header" style="padding-bottom: 8px; margin-bottom: 16px;">
-                    <h2 style="font-size: 18px;">Integracje (Warstwa 3)</h2>
+            <div class="dashboard-card-section">
+                <div class="dashboard-section-header">
+                    <h3>Integracje</h3>
                 </div>
                 <div class="list-container" id="integrations-tree-body">
                     <div class="empty-state">Brak skonfigurowanych integracji.</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Sekcja 4: Aplikacje Klienckie (Węzły RegisDesktop) -->
-        <div class="dashboard-col" style="grid-column: span 3;">
-            <div>
-                <div class="view-header" style="padding-bottom: 8px; margin-bottom: 16px;">
-                    <h2 style="font-size: 18px;">Aplikacje Klienckie (Węzły RegisDesktop)</h2>
-                </div>
-                <div class="list-container" id="nodes-tree-body" style="height: auto; min-height: 120px;">
-                    <div class="empty-state">Brak zarejestrowanych klientów RegisDesktop.</div>
                 </div>
             </div>
         </div>
