@@ -11,7 +11,7 @@
         </div>
         <div class="strip-divider"></div>
         <div class="strip-stat">
-            <span class="strip-label">Zmysły</span>
+            <span class="strip-label">Agent (LLM)</span>
             <span class="strip-value" id="providers-count">0</span>
         </div>
         <div class="strip-divider"></div>
@@ -21,57 +21,40 @@
         </div>
         <div class="strip-divider"></div>
         <div class="strip-stat">
-            <span class="strip-label">Aplikacje</span>
-            <span class="strip-value" id="worker-count">0</span>
-        </div>
-        <div class="strip-badge-area">
-            <div id="system-readiness-badge" class="badge-readiness full-mode">
-                <span class="dot online"></span> Tryb pełny
-            </div>
+            <span class="strip-label">Integracje</span>
+            <span class="strip-value" id="integration-count">0</span>
         </div>
     </div>
 
     <div class="dashboard-grid">
-        <!-- Lewa Kolumna (~60%): Zmysły & Dostawcy oraz Aplikacje Klienckie -->
-        <div class="dashboard-col dashboard-main-col">
-            <div class="dashboard-card-section">
-                <div class="dashboard-section-header">
-                    <h3>Zmysły &amp; Dostawcy</h3>
-                    <button class="btn btn-ghost" id="add-cloud-provider-btn">+ Dodaj Chmurę</button>
-                </div>
-                <div class="list-container" id="providers-tree-body">
-                    <div class="empty-state">Brak skonfigurowanych dostawców zmysłów.</div>
-                </div>
+        <!-- Kafelek 1: Agent & Kanał Audio -->
+        <div class="dashboard-card-section">
+            <div class="dashboard-section-header">
+                <h3>Agent &amp; Kanał Audio</h3>
+                <button class="btn btn-ghost" id="add-cloud-provider-btn">+ Dodaj Chmurę</button>
             </div>
-
-            <div class="dashboard-card-section">
-                <div class="dashboard-section-header">
-                    <h3>Aplikacje Klienckie</h3>
-                </div>
-                <div class="list-container" id="nodes-tree-body">
-                    <div class="empty-state">Brak zarejestrowanych klientów RegisDesktop.</div>
-                </div>
+            <div class="list-container" id="providers-tree-body">
+                <div class="empty-state">Brak skonfigurowanego dostawcy.</div>
             </div>
         </div>
 
-        <!-- Prawa Kolumna (~40%): Satelity oraz Integracje -->
-        <div class="dashboard-col dashboard-side-col">
-            <div class="dashboard-card-section">
-                <div class="dashboard-section-header">
-                    <h3>Satelity</h3>
-                </div>
-                <div class="list-container" id="satellites-tree-body">
-                    <div class="empty-state">Brak zarejestrowanych satelitów.</div>
-                </div>
+        <!-- Kafelek 2: Satelity -->
+        <div class="dashboard-card-section">
+            <div class="dashboard-section-header">
+                <h3>Satelity</h3>
             </div>
+            <div class="list-container" id="satellites-tree-body">
+                <div class="empty-state">Brak zarejestrowanych satelitów.</div>
+            </div>
+        </div>
 
-            <div class="dashboard-card-section">
-                <div class="dashboard-section-header">
-                    <h3>Integracje</h3>
-                </div>
-                <div class="list-container" id="integrations-tree-body">
-                    <div class="empty-state">Brak aktywnych integracji. Uruchom Home Assistant lub inną integrację, aby ją tutaj zobaczyć.</div>
-                </div>
+        <!-- Kafelek 3: Integracje -->
+        <div class="dashboard-card-section">
+            <div class="dashboard-section-header">
+                <h3>Integracje</h3>
+            </div>
+            <div class="list-container" id="integrations-tree-body">
+                <div class="empty-state">Brak aktywnych integracji. Uruchom Home Assistant lub inną integrację, aby ją tutaj zobaczyć.</div>
             </div>
         </div>
     </div>

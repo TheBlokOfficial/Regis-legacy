@@ -63,9 +63,8 @@
     border: 1px solid #27272a;
     border-radius: 12px;
     background: #141414;
-    min-height: 200px;
-    height: fit-content;
-    max-height: 480px;
+    min-height: 260px;
+    flex: 1;
     overflow-y: auto;
     transition: all 0.2s ease;
 }

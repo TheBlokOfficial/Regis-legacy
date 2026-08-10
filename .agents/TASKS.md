@@ -1,5 +1,16 @@
 # Lista Zadań Projektu Regis (TASKS)
 
+## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Przebudowa Dashboardu: 3 Symetryczne Kafelki & Statusy LED)
+
+- [x] **Układ 3 Symetrycznych Kafelków w Rzędzie (`src/controller/web/views/dashboard.html` & `css/layout.css`)**:
+  - Przebudowano siatkę Pulpitu na 3 jednakowe kolumny w jednym rzędzie: Agent & Kanał Audio, Satelity, Integracje.
+  - Wycentrowano obszar roboczy (`max-width: 1320px; margin: 0 auto;`).
+- [x] **Dopisanie Podsekcji i Pulsujących Diod LED w Kafelku Agenta (`src/controller/web/renderer.js`)**:
+  - Wyodrębniono podsekcje `Agent` oraz `Kanał głosowy`, dodając pulsującą diodę LED (`.dot.online` / `.dot.offline`) w nagłówku każdej z nich.
+  - Usunięto zduplicate'owane zielone kropki wewnątrz wierszy elementów na rzecz wyczyszczonego i ascetycznego wyglądu.
+- [x] **Oczyszczenie Górnego Paska Telemetrycznego (`src/controller/web/views/dashboard.html`)**:
+  - Usunięto zbędny badge `[• Tryb awaryjny]`, skupiając pasek na wskaźnikach liczbowych telemetrii.
+
 ## Rejestr Zrealizowanych Zadań (Sesja 2026-08-10 - Przebudowa Architektury i Dokumentów Fundamentowych)
 
 - [x] **Hierarchia LLM vs STT/TTS i Pojęcie Kanału Głosowego (`docs/MANIFEST.md` §3.0 & §5)**:

@@ -165,18 +165,27 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
     if (!container) return;
 
     let html = '';
-    let totalCount = 0;
+    let llmCount = 0;
 
-    // 1. Sekcja LLM (Mózg)
+    // 1. Sekcja: Agent (LLM Provider)
     const hasLlm = (cloudProviders && cloudProviders.length > 0) || (llmWorkers && llmWorkers.length > 0);
+    const llmDotClass = hasLlm ? 'online' : 'offline';
+    const llmBadgeClass = hasLlm ? 'online' : 'offline';
+    const llmBadgeText = hasLlm ? 'Działa' : 'Offline';
+
+    html += `
+        <div class="category-subhead" style="display:flex; align-items:center; gap:8px;">
+            <span class="dot ${llmDotClass}" style="margin-top:0;"></span>
+            <span>Agent</span>
+            <span class="badge ${llmBadgeClass}" style="margin-left:auto; font-size:10px; padding:1px 6px;">${llmBadgeText}</span>
+        </div>
+    `;
+    
     if (hasLlm) {
-        html += `<div class="category-subhead">Model Językowy (LLM)</div>`;
-        
         (cloudProviders || []).forEach(cp => {
-            totalCount++;
+            llmCount++;
             html += `
                 <div class="list-row">
-                    <span class="dot online"></span>
                     <div class="list-info">
                         <div class="list-title-group">
                             <span class="list-title">${escHtml(cp.model)}</span>
@@ -192,11 +201,10 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
         });
 
         (llmWorkers || []).forEach(w => {
-            totalCount++;
+            llmCount++;
             const modelName = w.model_name || "qwen2.5:7b";
             html += `
                 <div class="list-row">
-                    <span class="dot online"></span>
                     <div class="list-info">
                         <div class="list-title-group">
                             <span class="list-title">${escHtml(modelName)}</span>
@@ -209,82 +217,89 @@ export async function renderProvidersList(cloudProviders = [], llmWorkers = [], 
                 </div>
             `;
         });
-    }
-
-    // 2. Sekcja STT (Słuch)
-    const sttWorkers = (audioWorkers || []).filter(a => a.stt_model_size || a.services?.stt_worker);
-    if (sttWorkers.length > 0) {
-        html += `<div class="category-subhead">Transkrypcja Mowy (STT)</div>`;
-        sttWorkers.forEach(a => {
-            totalCount++;
-            const sttSize = a.stt_model_size || "small";
-            html += `
-                <div class="list-row">
-                    <span class="dot online"></span>
-                    <div class="list-info">
-                        <div class="list-title-group">
-                            <span class="list-title">Faster-Whisper (${escHtml(sttSize)})</span>
-                        </div>
-                        <span class="list-meta">Silnik: Whisper • Transkrypcja mowy</span>
-                    </div>
-                    <div class="list-actions">
-                        <span class="badge online">Lokalny</span>
-                    </div>
-                </div>
-            `;
-        });
-    }
-
-    // 3. Sekcja TTS (Mowa)
-    const ttsWorkers = (audioWorkers || []).filter(a => a.tts_model_name || a.services?.tts_worker);
-    if (ttsWorkers.length > 0) {
-        html += `<div class="category-subhead">Synteza Mowy (TTS)</div>`;
-        ttsWorkers.forEach(a => {
-            totalCount++;
-            const ttsModel = a.tts_model_name || "piper";
-            html += `
-                <div class="list-row">
-                    <span class="dot online"></span>
-                    <div class="list-info">
-                        <div class="list-title-group">
-                            <span class="list-title">Piper (${escHtml(ttsModel)})</span>
-                        </div>
-                        <span class="list-meta">Silnik: Piper • Synteza głosu</span>
-                    </div>
-                    <div class="list-actions">
-                        <span class="badge online">Lokalny</span>
-                    </div>
-                </div>
-            `;
-        });
-    }
-
-    if (!html) {
-        container.innerHTML = `
-            <div class="empty-banner">
-                <span class="banner-title">System działa w TRYBIE FALLBACK (Offline NLU)</span>
-                <span class="banner-desc">Brak aktywnego dostawcy zmysłów. Uruchom aplikację <strong>RegisDesktop</strong> na komputerze lub dodaj dostawcę chmurowego, aby odblokować pełny tryb ReAct.</span>
-                <div class="banner-actions">
-                    <button class="btn btn-ghost" id="banner-add-cloud-btn">+ Dodaj Chmurę</button>
+    } else {
+        html += `
+            <div class="list-row">
+                <div class="list-info">
+                    <span class="list-title" style="color: #888888;">Brak aktywnego modelu LLM</span>
+                    <span class="list-meta">Dodaj dostawcę chmurowego lub uruchom RegisDesktop</span>
                 </div>
             </div>
         `;
-        const bannerBtn = container.querySelector('#banner-add-cloud-btn');
-        if (bannerBtn) {
-            bannerBtn.addEventListener('click', () => openCloudProviderModal());
-        }
-    } else {
-        container.innerHTML = html;
-        container.querySelectorAll('.btn-edit-cp').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const providerId = btn.getAttribute('data-id');
-                openCloudProviderModal(providerId);
-            });
-        });
     }
 
+    // 2. Sekcja: Kanał głosowy (STT + TTS)
+    const sttWorkers = (audioWorkers || []).filter(a => a.stt_model_size || a.services?.stt_worker);
+    const ttsWorkers = (audioWorkers || []).filter(a => a.tts_model_name || a.services?.tts_worker);
+    const voiceChannelReady = sttWorkers.length > 0 && ttsWorkers.length > 0;
+
+    const voiceDotClass = voiceChannelReady ? 'online' : 'offline';
+    const voiceBadgeClass = voiceChannelReady ? 'online' : 'offline';
+    const voiceBadgeText = voiceChannelReady ? 'Działa' : 'Brak głosu';
+
+    html += `
+        <div class="category-subhead" style="display:flex; align-items:center; gap:8px;">
+            <span class="dot ${voiceDotClass}" style="margin-top:0;"></span>
+            <span>Kanał głosowy</span>
+            <span class="badge ${voiceBadgeClass}" style="margin-left:auto; font-size:10px; padding:1px 6px;">${voiceBadgeText}</span>
+        </div>
+    `;
+
+    if (sttWorkers.length > 0 || ttsWorkers.length > 0) {
+        sttWorkers.forEach(a => {
+            const sttSize = a.stt_model_size || "small";
+            html += `
+                <div class="list-row">
+                    <div class="list-info">
+                        <div class="list-title-group">
+                            <span class="list-title">STT: Faster-Whisper (${escHtml(sttSize)})</span>
+                        </div>
+                        <span class="list-meta">Transkrypcja mowy</span>
+                    </div>
+                    <div class="list-actions">
+                        <span class="badge online">Lokalny</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        ttsWorkers.forEach(a => {
+            const ttsModel = a.tts_model_name || "piper";
+            html += `
+                <div class="list-row">
+                    <div class="list-info">
+                        <div class="list-title-group">
+                            <span class="list-title">TTS: Piper (${escHtml(ttsModel)})</span>
+                        </div>
+                        <span class="list-meta">Synteza głosu</span>
+                    </div>
+                    <div class="list-actions">
+                        <span class="badge online">Lokalny</span>
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        html += `
+            <div class="list-row">
+                <div class="list-info">
+                    <span class="list-title" style="color: #888888;">Kanał głosowy niedostępny</span>
+                    <span class="list-meta">Brak dostawcy STT/TTS (wymagany bundle mowy)</span>
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+    container.querySelectorAll('.btn-edit-cp').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const providerId = btn.getAttribute('data-id');
+            openCloudProviderModal(providerId);
+        });
+    });
+
     const countEl = document.getElementById("providers-count");
-    if (countEl) countEl.textContent = totalCount;
+    if (countEl) countEl.textContent = llmCount;
 }
 
 export async function renderCloudProvidersList() {
