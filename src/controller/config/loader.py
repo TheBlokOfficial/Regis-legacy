@@ -79,7 +79,37 @@ def _get_file_name_from_schema(schema_or_instance: Any) -> str:
 def load(schema_class: Type[T]) -> T:
     """Ładuje konfigurację bezpośrednio na podstawie klasy schematu Pydantic."""
     file_name = _get_file_name_from_schema(schema_class)
-    return load_config(file_name, schema=schema_class)
+    instance = load_config(file_name, schema=schema_class)
+    
+    # Automatyczny domyślny zasiew przy braku pliku dla zunifikowanych dostawców LLM
+    if schema_class.__name__ == "LlmProvidersConfig" and not getattr(instance, "root", []):
+        from controller.config.schemas import LlmProviderConfig
+        api_key = os.environ.get("OPENROUTER_API_KEY", "")
+        model = os.environ.get("OPENROUTER_MODEL", "qwen/qwen-2.5-72b-instruct")
+        if api_key:
+            instance.root.append(LlmProviderConfig(
+                id="auto_openrouter",
+                type="openrouter",
+                name="OpenRouter",
+                api_key=api_key,
+                model=model,
+                priority=50
+            ))
+        raw_settings = load_config("settings")
+        ollama_url = raw_settings.get("ollama_url", "http://127.0.0.1:11434") if isinstance(raw_settings, dict) else "http://127.0.0.1:11434"
+        ollama_model = raw_settings.get("model_name", "qwen3.5:9b") if isinstance(raw_settings, dict) else "qwen3.5:9b"
+        instance.root.append(LlmProviderConfig(
+            id="ollama",
+            type="ollama",
+            name=f"Ollama ({ollama_model})",
+            model=ollama_model,
+            host=ollama_url,
+            priority=100
+        ))
+        save(instance)
+
+    return instance
+
 
 
 def save(instance: BaseModel) -> None:

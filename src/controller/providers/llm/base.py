@@ -4,11 +4,13 @@ Abstrakcyjny interfejs backendu LLM.
 Wszystkie konkretne backendy (Ollama, OpenRouter, ClientApp) dziedziczą
 po tej klasie i implementują wymaganą logikę komunikacji z usługą LLM.
 """
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import AsyncGenerator
 
+from controller.providers.base import BaseBackend
 
-class LLMBackend(ABC):
+
+class LLMBackend(BaseBackend):
     """Abstrakcyjny interfejs silnika LLM."""
 
     @abstractmethod

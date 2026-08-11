@@ -6,17 +6,14 @@ Ten dokument definiuje duszę projektu Regis. Służy jako najwyższy kompas dla
 
 ## 1. Czym jest Regis?
 
-Regis to **autonomiczne oprogramowanie agenta** — instalujesz je na dedykowanej maszynie (mini PC) i od razu otrzymujesz działający system z własnym panelem webowym. Otwierasz przeglądarkę, widzisz dashboard: aktualny status agenta, kanału głosowego, satelitów i integracji. Integracje dodajesz **do Regisa** — nie na odwrót.
+**Regis to autonomiczny, osobisty asystent domowy działający 24/7 na dedykowanej maszynie (Mini PC).** Nie jest frameworkiem ani biblioteką — jest gotowym oprogramowaniem agentowym (ReAct) z własnym panelem webowym, modułowym pipeline'em I/O (LLM, STT, TTS) oraz opcjonalnymi integracjami narzędziowymi.
 
-Regis nie jest frameworkiem ani biblioteką. Jest produktem — tak jak Home Assistant jest produktem do smart home, Regis jest produktem do prowadzenia agenta w złożonym środowisku osobistym i domowym. Jego rdzeń to pełnoprawny agent (pętla ReAct, zarządzanie sesjami, rejestr narzędzi) z pluginowalną warstwą zmysłów (LLM, STT, TTS, kanały komunikacji) i opcjonalnymi integracjami narzędziowymi (HA, web, kamery). Możesz go rozszerzyć — ale działa i bez żadnych rozszerzeń.
+Tożsamość projektu opiera się na czterech filarach:
 
-**Istota projektu:** Regis to oprogramowanie które interaktuje z innymi oprogramowaniami w dokładnie taki sam sposób jak człowiek. Nie interesuje go low-level — protokoły, sterowniki, sposób w jaki żarówka Zigbee negocjuje połączenie z koncentratorem. Regis widzi to co widzi człowiek patrzący na dashboard: włączona lub wyłączona. Dlatego Home Assistant — platforma z setkami integracji i całym ekosystemem community — jest z perspektywy Regisa po prostu jedną integracją w katalogu `integrations/`. Regis nie zarządza urządzeniami. Pyta systemy które to robią. To jest właściwy poziom abstrakcji, nie ograniczenie.
-
-Regis jest projektem osobistym — zaprojektowanym do poruszania się w złożonym środowisku domowym i osobistej przestrzeni użytkownika. Nie jest narzędziem enterprise. Nie służy do scrapowania internetu, przetwarzania tysięcy dokumentów ani obsługi korporacyjnych procesów — choć agent ReAct technicznie byłby do tego zdolny. Fakt że coś jest możliwe, nie znaczy że powinno tu trafić. Regis to asystent z osobowością, nie platforma do automatyzacji.
-
-**Tryb podstawowy — głosowy:** Regis komunikuje się z użytkownikiem przez satelity głosowe (ESP32, RegisDesktop). Interakcja głosowa jest trybem prymarnym dla użytkownika końcowego. Panel webowy i czat tekstowy pełnią rolę narzędzi deweloperskich (podgląd wywołań agenta, debugowanie, konfiguracja) — nie są przeznaczone do codziennej interakcji z systemem.
-
-Projekt jest hobby — jakość, spójność i czystość architektury są ważniejsze niż szybkie dostarczanie funkcji.
+1. **Abstrakcja na poziomie ludzkim:** Regis interaguje ze światem zewnętrznym dokładnie tak jak człowiek patrzący na ekran — widzi stan wysokiego poziomu (np. "włączone/wyłączone"). Nie zarządza bezpośrednio urządzeniami ani sterownikami. Dla Regisa Home Assistant czy MQTT są po prostu integracjami narzędziowymi w katalogu `integrations/`. Pyta systemy, które się tym zajmują.
+2. **Głos jako prymarny kanał I/O:** Domyślnym sposobem interakcji dla domowników są satelity głosowe strumieniujące audio do pipeline'u I/O. Panel webowy i czat tekstowy pełnią rolę narzędzi deweloperskich i diagnostycznych.
+3. **Osobisty asystent, nie platforma enterprise:** Regis został stworzony do poruszania się w prywatnej przestrzeni domowej. Jest asystentem z osobowością — nie służy do masowego scrapowania internetu, przetwarzania tysięcy dokumentów ani automatyzacji procesów biznesowych.
+4. **Jakość ponad tempo:** Regis to projekt hobbystyczny. Czystość architektury, spójność i elegancja kodu są ważniejsze niż szybkie dostarczanie nowych funkcji.
 
 ---
 
@@ -33,9 +30,9 @@ Największym grzechem w tym projekcie jest implementacja funkcji "na siłę", ty
 Podział elementów w systemie jest prosty i jednoznaczny:
 
 1. **Klienci (Satelity)** — urządzania stykowe w pokojach (ESP32, Satelita Desktopowa) będące cienkimi klientami I/O (audio/tekst).
-2. **Providerzy (Dostawcy Zmysłów)** — dzielą się na dwie grupy:
+2. **Providerzy (Usługi I/O oraz LLM)** — dzielą się na dwie grupy:
    - **Agent (LLM Provider)** — najwyżej w hierarchii. To sam agent (mózg) i jego pętla ReAct (OpenRouter w chmurze, Ollama lokalnie). Bez aktywnego LLM agent nie istnieje (fallback: Parser offline).
-   - **Kanał Głosowy (`voice_channel`)** — logiczny stan gotowości interakcji głosowej, budowany dynamicznie z niezależnych providerów **STT** (transkrypcja mowy) oraz **TTS** (synteza głosu) dobieranych z worka dostępnych zmysłów.
+   - **Kanał Głosowy (`voice_channel`)** — logiczny stan gotowości interakcji głosowej, budowany dynamicznie z niezależnych providerów **STT** (transkrypcja mowy) oraz **TTS** (synteza głosu) dobieranych z worka dostępnych usług I/O.
 
 ### Zasady Kanału Głosowego:
 - **Brak Sztywnego Bundlowania**: Nie robimy żadnego wiązania konkretnego providera STT z konkretnym providerem TTS. Provider STT (np. Faster-Whisper, Cloud STT) oraz provider TTS (np. Piper, ElevenLabs) są całkowicie niezależnymi usługami dobieranymi z ogólnego "worka".
@@ -44,13 +41,13 @@ Podział elementów w systemie jest prosty i jednoznaczny:
 
 ### 3.1 Rdzeń Systemu (Core)
 
-Core to wszystko, co stanowi samego agenta. Instalując Regisa, dostajesz kompletny mózg i układ nerwowy — gotowy do działania po podłączeniu zmysłów. Core nie wymaga konfiguracji, żeby *istnieć* — wymaga podłączonych providerów, żeby *działać*.
+Core to wszystko, co stanowi samego agenta. Instalując Regisa, dostajesz kompletny mózg — gotowy do działania po podłączeniu providera LLM i usług I/O. Core nie wymaga konfiguracji, żeby *istnieć* — wymaga podłączonych providerów, żeby *działać*.
 
 **Zawartość:**
 - **Pętla ReAct** — wewnętrzny monolog `<thought>`, routing narzędzi, obsługa tury konwersacji
 - **Session Manager** — historia konwersacji per sesja, przechowywanie i odtwarzanie kontekstu
 - **Tool Registry** — mechanizm rejestracji i wywoływania narzędzi (nie konkretne narzędzia — tylko mechanizm)
-- **Abstrakcyjne interfejsy dla zmysłów:**
+- **Abstrakcyjne interfejsy dla usług:**
   - `ILLMProvider` — gniazdo na model językowy (agent, rdzeń systemu)
   - `ISTTProvider` — gniazdo na transkrypcję mowy (wejście Kanału Głosowego)
   - `ITTSProvider` — gniazdo na syntezę mowy (wyjście Kanału Głosowego)
@@ -61,7 +58,7 @@ Core to wszystko, co stanowi samego agenta. Instalując Regisa, dostajesz komple
 
 **Walidacja przy starcie:** Przynajmniej jedno `ILLMProvider` musi być podłączone. Bez LLM agent nie funkcjonuje — to fundamentalne wymaganie, inaczej niż brak narzędzi (bez integracji HA agent po prostu nic nie może *zrobić* w smart home, ale nadal istnieje).
 
-### 3.2 Dostawcy Zmysłów i Satelity (Providers & Satellites)
+### 3.2 Dostawcy Usług I/O i Satelity (Providers & Satellites)
 
 Konkretne implementacje podłączane do interfejsów przy starcie. Zmiana providera STT/TTS nie wymaga dotknięcia Core — wymaga jedynie zamiany implementacji.
 
@@ -169,7 +166,7 @@ Przyszłe integracje mogą obejmować m.in.:
 - Własne skrypty i usługi sieciowe
 - Dowolny inny endpoint, który ma sens w kontekście sterowania domem
 
-**Konsekwencja dla kodu:** `ToolsRegistry` i `RemoteToolsRegistry` są agnostyczne wobec źródła narzędzi — rozmawiają z `integrations/` przez abstrakcyjny interfejs, nie bezpośrednio z HA. Dodanie nowej integracji oznacza: nowy plik w `integrations/`, nowe narzędzie w `protocol/schemas.py` i nowy handler w `protocol/tools_registry.py`. Żadne inne warstwy nie wymagają zmian.
+**Konsekwencja dla kodu:** `ToolsRegistry` jest agnostyczny wobec źródła narzędzi — rozmawia z `src/controller/integrations/` przez abstrakcyjny interfejs. Dodanie nowej integracji oznacza: nowy plik narzędziowy w `src/controller/integrations/` (np. `ha_tools.py`, `system_tools.py`) oraz rejestrację w `src/controller/agent/tools/registry.py`. Żadne inne warstwy nie wymagają zmian.
 
 ---
 
@@ -363,13 +360,14 @@ Regis jako oprogramowanie ma następujące **cele projektowe** — nie są to tw
 - Izolacja konfiguracji na profile per instancja (pliki `.env`)
 - Auto-Discovery węzłów (UDP Broadcast Zero-Conf, `protocol/discovery.py`)
 - Rejestr Encji (Satelity i Węzły rejestrują się w Kontrolerze)
-- **Izolacja usług (monorepo):** `src/protocol/` oczyszczony do roli chudego kontraktu sieciowego. Każda usługa (`controller`, `node`, `worker`) ma własne kopie `config.py`, `logger.py`, `exceptions.py`, `history_utils.py`, `llm_backends/`. Zero cross-importów między usługami.
-- **Warstwa abstrakcji LLM (`llm_backends/`)** w Kontrolerze zaimplementowana (`controller/llm_backends/`). OpenRouter i Ollama jako oddzielne backendy z wspólnym interfejsem `LLMBackend`.
+- **Izolacja usług (monorepo):** `src/protocol/` oczyszczony do roli chudego kontraktu sieciowego DTO.
+- **Warstwa abstrakcji LLM (`llm_backends/`)** w Kontrolerze zaimplementowana. OpenRouter i Ollama jako oddzielne backendy z wspólnym interfejsem `LLMBackend`.
+- **Dedykowany Audio Service (`src/audio_service/`)**: Stworzono autonomicznego daemona HTTP (Faster-Whisper + Piper na porcie `8002`) z endpointami `/v1/stt/transcribe` i `/v1/tts/synthesize`.
+- **Sformalizowany wzorzec ABC dla Backendów Audio**: `STTBackend` i `TTSBackend` wdrożone jako formalne klasy abstrakcyjne w `src/controller/core/providers/`.
+- **Refaktoryzacja RegisDesktop w Czystego Demona Satelity**: Wycięto podprocesy workerów; klient Windows działa jako czysty demon Satelity (`satellite`).
 
 **Aktualny dług (oczekuje realizacji):**
-- **Audio Service** — nowy komponent (Python daemon: Faster-Whisper + Piper) do zaimplementowania jako osobny proces na mini PC. Aktualnie jego rolę pełni RegisDesktop (tymczasowo, faza dev). Wymagany do osiągnięcia docelowej architektury z mini PC jako centrum.
-- **Formalne oddzielenie ról RegisDesktop** — podział na "tryb dev" (usługi + satelita) i "tryb prod" (tylko satelita). Wymaga refaktoryzacji RegisDesktop po wdrożeniu Audio Service.
-- **Dystrybucja Windows:** Inno Setup (`RegisNodeSetup.exe`) jest zaprojektowany (`docs/distribution_rfc.md`) ale instalator nie jest jeszcze zbudowany produkcyjnie — patrz `TASKS.md`.
+- **Dystrybucja Windows:** Inno Setup (`RegisNodeSetup.exe`) jest zaprojektowany (`docs/distribution_rfc.md`), ale instalator wymaga zbudowania — patrz `TASKS.md`.
 - **Pamięć Długoterminowa:** Stary system Notatnika wycięty. Nowe rozwiązanie (np. wektorowe) nie zostało jeszcze zaprojektowane — patrz `TASKS.md`.
-- **System Providerów (STT/TTS):** Warstwa abstrakcji dla STT i TTS nie jest jeszcze zaimplementowana jako formalne klasy bazowe w kodzie. Implementacja jest częścią `[ARCH — Phase 2]`.
-- **Formalne interfejsy warstwy 2:** Abstrakcyjne interfejsy `ILLMProvider`, `ISTTProvider`, `ITTSProvider`, `ISatellite` istnieją jako koncepcja architektoniczna (§3.1) — nie są jeszcze sformalizowane jako klasy bazowe w kodzie.
+- **FastAPI Dependency Injection (`AppState`)**: Przejście z modułowych zmiennych w `state.py` na czysty wtrysk zależności `Depends()` w routerach FastAPI.
+- **Wdrożenie Dwuwarstwowych Sub-Agentów**: Zarządzanie wątkami pomocniczymi opisane w `docs/hierarchical_subagents_rfc.md`.

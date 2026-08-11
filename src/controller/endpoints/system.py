@@ -42,15 +42,15 @@ async def get_status_snapshot() -> dict:
     satellites = client_registry.get_satellite_clients()
 
     # Wyliczanie zmysłów z aktualnego kontraktu ProviderRegistry.
-    active_stt = provider_registry.get_active_stt()
-    active_tts = provider_registry.get_active_tts()
+    active_stt = provider_registry.voice_channel.stt
+    active_tts = provider_registry.voice_channel.tts
     active_llm = provider_registry.llm.backend
 
     stt_count = 1 if active_stt else 0
     tts_count = 1 if active_tts else 0
     llm_count = 1 if active_llm else 0
 
-    voice_channel_ready = provider_registry.is_voice_channel_ready()
+    voice_channel_ready = provider_registry.voice_channel.is_ready
     full_mode = active_llm is not None and voice_channel_ready
 
     audio_workers = []

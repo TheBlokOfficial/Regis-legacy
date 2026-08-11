@@ -71,21 +71,30 @@ class VirtualGroupsConfig(BaseConfigModel, RootModel[dict[str, list[str]]]):
     root: dict[str, list[str]] = Field(default_factory=dict)
 
 
-class CloudProviderConfig(BaseModel):
-    """Konfiguracja pojedynczego dostawcy chmurowego (np. OpenRouter, Groq)."""
+class LlmProviderConfig(BaseModel):
+    """Zunifikowana konfiguracja pojedynczego dostawcy LLM (chmurowego lub lokalnego)."""
     id: str
-    type: str
-    api_key: str
-    model: str
+    type: str  # np. "openrouter", "ollama", "groq"
+    name: str | None = None
+    api_key: str | None = ""
+    model: str | None = None
+    host: str | None = None
+    port: int | None = None
     priority: int = 50
 
 
-class CloudProvidersConfig(BaseConfigModel, RootModel[list[CloudProviderConfig]]):
-    """Schemat listy dostawców chmurowych z data/cloud_providers.json."""
+class LlmProvidersConfig(BaseConfigModel, RootModel[list[LlmProviderConfig]]):
+    """Zunifikowany schemat listy dostawców LLM z data/llm_providers.json."""
     class Meta:
-        file_name = "cloud_providers"
+        file_name = "llm_providers"
         
-    root: list[CloudProviderConfig] = Field(default_factory=list)
+    root: list[LlmProviderConfig] = Field(default_factory=list)
+
+
+# Zachowane dla wstecznej kompatybilności
+CloudProviderConfig = LlmProviderConfig
+CloudProvidersConfig = LlmProvidersConfig
+
 
 
 class ClientsConfig(BaseConfigModel, RootModel[dict[str, dict[str, Any]]]):
@@ -94,3 +103,38 @@ class ClientsConfig(BaseConfigModel, RootModel[dict[str, dict[str, Any]]]):
         file_name = "clients"
         
     root: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
+
+class AudioProviderConfig(BaseModel):
+    """Konfiguracja zewnętrznej usługi Audio Service."""
+    id: str
+    name: str
+    host: str
+    port: int
+    stt_model_size: str | None = None
+    tts_model_name: str | None = None
+
+
+class AudioProvidersConfig(BaseConfigModel, RootModel[list[AudioProviderConfig]]):
+    """Zapisane zewnętrzne usługi audio z data/audio_providers.json."""
+    class Meta:
+        file_name = "audio_providers"
+        
+    root: list[AudioProviderConfig] = Field(default_factory=list)
+
+
+class SatelliteConfig(BaseModel):
+    """Konfiguracja zadeklarowanej Satelity (urządzenia stykowe w pokoju)."""
+    id: str
+    name: str
+    room: str
+    type: str = "desktop"  # desktop / esp32 / terminal
+    capabilities: list[str] = Field(default_factory=lambda: ["audio_in", "audio_out"])
+
+
+class SatellitesConfig(BaseConfigModel, RootModel[list[SatelliteConfig]]):
+    """Zapisane zadeklarowane satelity z data/satellites.json."""
+    class Meta:
+        file_name = "satellites"
+
+    root: list[SatelliteConfig] = Field(default_factory=list)

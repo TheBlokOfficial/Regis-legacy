@@ -4,6 +4,7 @@ Silniki Wykonawcze HTTP dla Stacjonarnej Usługi Audio Service (Faster-Whisper S
 import time
 import logging
 import httpx
+from typing import Any
 
 from controller.providers.audio.base import STTBackend, TTSBackend
 
@@ -20,11 +21,23 @@ class AudioServiceSTTBackend(STTBackend):
         base_url: str = "http://127.0.0.1:8002",
         model_size: str = "small",
     ):
-        self.id = id
-        self.name = name
+        super().__init__(id=id, name=name)
         self.base_url = base_url.rstrip("/")
         self.model_size = model_size
         self.last_seen: float = time.time()
+
+    @classmethod
+    def create_and_register(cls, config_data: Any) -> None:
+        from controller.providers import registry
+        host = getattr(config_data, "host", "127.0.0.1")
+        port = getattr(config_data, "port", 8002)
+        base_url = getattr(config_data, "base_url", f"http://{host}:{port}")
+        backend_id = f"{getattr(config_data, 'id', 'audio-service')}-stt"
+        backend_name = f"{getattr(config_data, 'name', 'Audio Service')} (STT)"
+        
+        backend = cls(id=backend_id, name=backend_name, base_url=base_url)
+        backend.last_seen = 0  # Domyślnie offline przed pierwszym heartbeatem
+        registry.register_stt(backend)
 
     def touch(self) -> None:
         """Odświeża znacznik czasu ostatniego heartbeatu."""
@@ -65,11 +78,22 @@ class AudioServiceTTSBackend(TTSBackend):
         base_url: str = "http://127.0.0.1:8002",
         voice_name: str = "pl_PL-darkman-medium",
     ):
-        self.id = id
-        self.name = name
+        super().__init__(id=id, name=name)
         self.base_url = base_url.rstrip("/")
         self.voice_name = voice_name
-        self.last_seen: float = time.time()
+
+    @classmethod
+    def create_and_register(cls, config_data: Any) -> None:
+        from controller.providers import registry
+        host = getattr(config_data, "host", "127.0.0.1")
+        port = getattr(config_data, "port", 8002)
+        base_url = getattr(config_data, "base_url", f"http://{host}:{port}")
+        backend_id = f"{getattr(config_data, 'id', 'audio-service')}-tts"
+        backend_name = f"{getattr(config_data, 'name', 'Audio Service')} (TTS)"
+        
+        backend = cls(id=backend_id, name=backend_name, base_url=base_url)
+        backend.last_seen = 0
+        registry.register_tts(backend)
 
     def touch(self) -> None:
         """Odświeża znacznik czasu ostatniego heartbeatu."""

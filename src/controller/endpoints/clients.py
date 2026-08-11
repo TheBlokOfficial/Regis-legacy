@@ -92,47 +92,51 @@ async def register_audio_service(req: AudioServiceRegisterRequest):
     from controller.providers.audio.audio_service import AudioServiceSTTBackend, AudioServiceTTSBackend
 
     client_id = req.id
-    is_new = client_id not in client_registry.client_registry
+    stt_id = f"{client_id}-stt"
+    tts_id = f"{client_id}-tts"
+    
+    # 1. Sprawdzamy, czy ten zmysł jest zadeklarowany w konfiguracji (czy istnieje w katalogu)
+    stt_touched = provider_registry.touch_stt(stt_id)
+    tts_touched = provider_registry.touch_tts(tts_id)
+    
+    is_known_provider = stt_touched or tts_touched
 
-    # 1. Zapis w rejestrze klientów (metadane)
-    client_registry.client_registry[client_id] = {
-        "id": client_id,
-        "name": req.name,
-        "host": req.host,
-        "port": req.port,
-        "base_url": req.base_url,
-        "services": {
-            "stt_worker": {"stt_model_size": req.stt_model_size, "port": req.port},
-            "tts_worker": {"tts_model_name": req.tts_model_name, "port": req.port},
-        },
-        "last_seen": time.time(),
-    }
-
-    # 2. Budowanie backendów i rejestracja w ProviderRegistry
-    stt_backend = AudioServiceSTTBackend(
-        id=f"{client_id}-stt",
-        name=f"Faster-Whisper ({req.stt_model_size})",
-        base_url=req.base_url,
-        model_size=req.stt_model_size,
-    )
-    tts_backend = AudioServiceTTSBackend(
-        id=f"{client_id}-tts",
-        name=f"Piper ({req.tts_model_name})",
-        base_url=req.base_url,
-        voice_name=req.tts_model_name,
-    )
-
-    provider_registry.register_stt(stt_backend)
-    provider_registry.register_tts(tts_backend)
-
-    if is_new:
-        logging.info(f"[Kontroler] Zarejestrowano backendy audio w ProviderRegistry: {req.name} ({req.base_url})")
-        await message_bus.publish(ClientRegisteredMessage(
-            client_id=client_id,
-            client_type="http",
-            name=req.name
-        ))
-    return {"status": "ok", "registered": True}
+    if is_known_provider:
+        # Zapisujemy w rejestrze węzłów na pulpicie
+        is_new_client = client_id not in client_registry.client_registry
+        client_registry.client_registry[client_id] = {
+            "id": client_id,
+            "name": req.name,
+            "host": req.host,
+            "port": req.port,
+            "base_url": req.base_url,
+            "services": {
+                "stt_worker": {"stt_model_size": req.stt_model_size, "port": req.port},
+                "tts_worker": {"tts_model_name": req.tts_model_name, "port": req.port},
+            },
+            "last_seen": time.time(),
+        }
+        if is_new_client:
+            logging.info(f"[Kontroler] Odebrano połączenie od zadeklarowanego Audio Service: {req.name}")
+            await message_bus.publish(ClientRegisteredMessage(
+                client_id=client_id,
+                client_type="http",
+                name=req.name
+            ))
+        return {"status": "ok", "registered": True, "known": True}
+    else:
+        # 2. Nieznana usługa z sieci. Zapisujemy do pending discoveries.
+        payload = {
+            "id": client_id,
+            "name": req.name,
+            "host": req.host,
+            "port": req.port,
+            "base_url": req.base_url,
+            "stt_model_size": req.stt_model_size,
+            "tts_model_name": req.tts_model_name,
+        }
+        provider_registry.register_pending_discovery(client_id, payload)
+        return {"status": "ok", "registered": False, "pending_approval": True, "known": False}
 
 
 @router_clients.get("/v1/clients/supported_models")
@@ -290,8 +294,7 @@ async def _handle_ws_satellite_event(client_id: str, data: dict, websocket: WebS
         if event.event_type == "state" and event.data.get("state") == "WAITING":
             import controller.providers.registry as providers
             audio_clients = client_registry.get_audio_clients()
-            llm_backend = await providers.get_active_llm()
-            if audio_clients and llm_backend is not None:
+            if audio_clients and providers.is_llm_ready():
                 await client_manager.send_command(client_id, "satellite_control", {"action": "resume"})
     except Exception as e:
         logging.error(f"Błąd parsowania WSClientEvent: {e}")
@@ -315,10 +318,9 @@ async def _handle_ws_task_event(client_id: str, data: dict, websocket: WebSocket
 async def _handle_ws_wake_check(client_id: str, data: dict, websocket: WebSocket):
     import controller.providers.registry as providers
     audio_clients = client_registry.get_audio_clients()
-    llm_backend = await providers.get_active_llm()
     if not audio_clients:
         await websocket.send_json({"type": "wake_check_result", "permitted": False, "reason": "Brak dostępnej usługi Audio (STT/TTS)"})
-    elif llm_backend is None:
+    elif not providers.is_llm_ready():
         await websocket.send_json({"type": "wake_check_result", "permitted": False, "reason": "Brak dostępnych usług LLM"})
     else:
         await websocket.send_json({"type": "wake_check_result", "permitted": True})

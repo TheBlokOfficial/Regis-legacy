@@ -90,3 +90,12 @@ async def test_connection_manager_removes_failed_connection():
 
     assert not await manager.send_command("client-1", "status")
     assert not manager.is_connected("client-1")
+
+
+def test_touch_satellite():
+    from controller.clients.registry import touch_satellite
+    
+    client_registry["sat-touch"] = {"id": "sat-touch", "last_seen": 0}
+    assert touch_satellite("sat-touch") is True
+    assert client_registry["sat-touch"]["last_seen"] > 0
+    assert touch_satellite("unknown-sat") is False

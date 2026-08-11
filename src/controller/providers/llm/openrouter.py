@@ -2,7 +2,7 @@ import json
 import logging
 import time
 import httpx
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Any
 
 from controller.providers.llm.base import LLMBackend
 from controller.exceptions import LLMConnectionError
@@ -11,10 +11,21 @@ OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
 class OpenRouterBackend(LLMBackend):
-    def __init__(self, api_key: str, model_name: str, temperature: float = 0.5):
+    def __init__(self, api_key: str, model_name: str, temperature: float = 0.5, id: str = "openrouter"):
+        super().__init__(id=id, name=f"OpenRouter ({model_name})")
         self.api_key = api_key
         self.model_name = model_name
         self.temperature = temperature
+
+    @classmethod
+    def create_and_register(cls, config_data: Any) -> None:
+        from controller.providers import registry
+        backend = cls(
+            api_key=getattr(config_data, "api_key", ""),
+            model_name=getattr(config_data, "model", "qwen/qwen-2.5-72b-instruct"),
+            id=getattr(config_data, "id", "openrouter"),
+        )
+        registry.register_llm(backend)
 
     async def is_available(self) -> bool:
         return bool(self.api_key and self.model_name)

@@ -12,7 +12,7 @@ import time
 
 import controller.agent.session.store as session_store
 import controller.clients.registry as client_registry
-from controller.providers.registry import llm, get_voice_channel
+from controller.providers.registry import llm, voice_channel
 import controller.state as app_state
 from controller.agent.engine import predict_next_action
 from controller.agent.prompt.builder import build_system_prompt
@@ -207,7 +207,7 @@ async def _on_user_spoke(msg: UserSpoke):
 
 async def _on_raw_audio(msg: RawAudioReceived):
     """Transkrybuje audio (STT), a następnie deleguje do handle_user_spoke."""
-    stt_text, _ = await get_voice_channel().transcribe(msg.audio_bytes)
+    stt_text, _ = await voice_channel.transcribe(msg.audio_bytes)
     if stt_text:
         async for item in handle_user_spoke(stt_text, msg.sender):
             yield item
@@ -218,7 +218,7 @@ async def _on_raw_audio(msg: RawAudioReceived):
 
 async def _on_agent_spoke(msg: AgentSpoke):
     """Nasłuchuje wypowiedzi Agenta i po udanym TTS rzuca komendę PlayAudio do klienta."""
-    audio_b64, _ = await get_voice_channel().synthesize(msg.text)
+    audio_b64, _ = await voice_channel.synthesize(msg.text)
     if audio_b64:
         await message_bus.publish(PlayAudioMessage(client_id=msg.sender, audio_b64=audio_b64))
     else:

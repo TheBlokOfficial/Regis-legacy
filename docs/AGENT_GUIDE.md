@@ -128,6 +128,16 @@ Poniższe decyzje były świadomie przemyślane i rozstrzygnięte. Propozycja ic
 
 ---
 
+## Obowiązek Wcześniejszej Analizy (Chain of Thought przed Działaniem)
+
+Modele autoregresywne podejmują decyzje na podstawie tokenów wygenerowanych wcześniej w sekwencji. Aby uniknąć wyrywności, pochopnych edycji i pomijania niuansów, agent musi upewnić się, że każda akcja jest poprzedzona procesem myślowym.
+
+**Zasada:** 
+- Jeśli model wykorzystuje **natywny mechanizm extended thinking / reasoning** (np. natywny blok przemyśleń w API), wymóg ten jest realizowany automatycznie przez silnik modelu.
+- W przypadku modeli **bez natywnego CoT lub z wyłączonym myśleniem** (np. modele typu Flash, standardowe czatowe), agent ma OBOWIĄZEK wygenerować najpierw w tekście odpowiedzi odrębne akapity analizy ("scratchpad"), opisujące kontekst, ograniczenia i planowane kroki, zanim przejdzie do modyfikacji plików lub propozycji konkretnych akcji.
+
+---
+
 ## Architektura LLM — Co Musisz Rozumieć
 
 Ten projekt ma dwa fundamentalnie różne tryby pracy modelu. **Tier to pojęcie promptu i zdolności modelu — nie mechanizm routingu.** Kontroler wybiera providera na podstawie dostępności (patrz §5 MANIFEST.md), nie na podstawie tieru. Pomylenie trybów pracy przy modyfikacji promptów jest krytycznym błędem.

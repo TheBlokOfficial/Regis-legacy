@@ -234,22 +234,22 @@ export async function saveNodeConfig(nodeId, configData) {
     }
 }
 
-// ── Cloud Providers API ───────────────────────────────────────────────────
+// ── LLM Providers API ───────────────────────────────────────────────────
 
 export async function fetchCloudProviders() {
     try {
-        const resp = await fetch("/api/cloud-providers");
+        const resp = await fetch("/api/llm-providers");
         if (!resp.ok) return [];
         return await resp.json();
     } catch (e) {
-        console.error("Błąd pobierania cloud providers:", e);
+        console.error("Błąd pobierania LLM providers:", e);
         return [];
     }
 }
 
 export async function addCloudProvider(providerData) {
     try {
-        const resp = await fetch("/api/cloud-providers", {
+        const resp = await fetch("/api/llm-providers", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(providerData),
@@ -260,14 +260,14 @@ export async function addCloudProvider(providerData) {
         }
         return await resp.json();
     } catch (e) {
-        console.error("Błąd dodawania cloud providera:", e);
+        console.error("Błąd dodawania LLM providera:", e);
         throw e;
     }
 }
 
 export async function patchCloudProvider(providerId, updates) {
     try {
-        const resp = await fetch(`/api/cloud-providers/${encodeURIComponent(providerId)}`, {
+        const resp = await fetch(`/api/llm-providers/${encodeURIComponent(providerId)}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(updates),
@@ -285,7 +285,7 @@ export async function patchCloudProvider(providerId, updates) {
 
 export async function deleteCloudProvider(providerId) {
     try {
-        const resp = await fetch(`/api/cloud-providers/${encodeURIComponent(providerId)}`, {
+        const resp = await fetch(`/api/llm-providers/${encodeURIComponent(providerId)}`, {
             method: "DELETE"
         });
         if (!resp.ok) {
@@ -293,6 +293,7 @@ export async function deleteCloudProvider(providerId) {
             throw new Error(err.detail || `HTTP ${resp.status}`);
         }
         return true;
+
     } catch (e) {
         console.error(`Błąd usuwania providera ${providerId}:`, e);
         throw e;

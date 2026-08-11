@@ -12,10 +12,12 @@ from controller.providers.registry import (
     clear_audio_backends,
     register_stt,
     register_tts,
-    get_active_stt,
-    get_active_tts,
-    get_voice_channel,
-    is_voice_channel_ready,
+    register_llm,
+    get_all_stt_backends,
+    get_all_tts_backends,
+    get_all_llm_backends,
+    voice_channel,
+    llm,
 )
 
 
@@ -31,8 +33,7 @@ def _clear_providers():
 # =============================================================================
 
 def test_voice_channel_empty():
-    vc = get_voice_channel()
-    assert not vc.is_ready
+    assert not voice_channel.is_ready
 
 
 def test_voice_channel_readiness():
@@ -40,17 +41,28 @@ def test_voice_channel_readiness():
     tts = AudioServiceTTSBackend(id="tts-1", name="Piper TTS", base_url="http://127.0.0.1:8002")
 
     register_stt(stt)
-    vc = get_voice_channel()
-    assert not vc.is_ready
-    assert vc.stt.id == "stt-1"
-    assert vc.tts is None
+    assert not voice_channel.is_ready
+    assert voice_channel.stt.id == "stt-1"
+    assert voice_channel.tts is None
 
     register_tts(tts)
-    vc = get_voice_channel()
-    assert vc.is_ready
-    assert vc.stt.id == "stt-1"
-    assert vc.tts.id == "tts-1"
-    assert is_voice_channel_ready()
+    assert voice_channel.is_ready
+    assert voice_channel.stt.id == "stt-1"
+    assert voice_channel.tts.id == "tts-1"
+
+
+def test_direct_provider_assignment():
+    stt1 = AudioServiceSTTBackend(id="stt-1", name="STT 1", base_url="http://127.0.0.1:8002")
+    stt2 = AudioServiceSTTBackend(id="stt-2", name="STT 2", base_url="http://127.0.0.1:8002")
+    register_stt(stt1)
+    register_stt(stt2)
+
+    assert "stt-1" in get_all_stt_backends()
+    assert "stt-2" in get_all_stt_backends()
+
+    stt_target = get_all_stt_backends().get("stt-2")
+    voice_channel.set_stt(stt_target)
+    assert voice_channel.stt.id == "stt-2"
 
 
 def test_provider_expiration():
@@ -59,9 +71,7 @@ def test_provider_expiration():
     stt.last_seen = time.time() - 40  # Przedawniony heartbeat
 
     assert not stt.is_online
-    assert get_active_stt() is None
-    vc = get_voice_channel()
-    assert not vc.is_ready
+    assert not voice_channel.is_ready
 
 
 def test_backend_touch_refreshes_liveness():

@@ -2,7 +2,7 @@ import logging
 import json
 import time
 import httpx
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Any
 
 from controller.providers.llm.base import LLMBackend
 from controller.exceptions import LLMConnectionError
@@ -10,7 +10,8 @@ from controller.config import loader as config
 
 
 class OllamaBackend(LLMBackend):
-    def __init__(self, host: str | None = None, model_name: str = "qwen3.5:9b", temperature: float = 0.5):
+    def __init__(self, host: str | None = None, model_name: str = "qwen3.5:9b", temperature: float = 0.5, id: str = "ollama"):
+        super().__init__(id=id, name=f"Ollama ({model_name})")
         if not host:
             settings = config.load_config("settings")
             host = settings.get("ollama_url", "http://127.0.0.1:11434")
@@ -18,6 +19,28 @@ class OllamaBackend(LLMBackend):
         self.model_name = model_name
         self.temperature = temperature
         logging.info(f"Zainicjalizowano OllamaBackend: Host={self.host}, Model={self.model_name}, Temp={temperature}")
+
+    @classmethod
+    def create_and_register(cls, config_data: Any) -> None:
+        from controller.providers import registry
+        host = getattr(config_data, "host", None) if hasattr(config_data, "host") else (
+            config_data.get("ollama_url") if isinstance(config_data, dict) else None
+        )
+        model_name = (
+            getattr(config_data, "model", None) or getattr(config_data, "model_name", None)
+            if hasattr(config_data, "model") or hasattr(config_data, "model_name")
+            else (
+                config_data.get("model") or config_data.get("model_name")
+                if isinstance(config_data, dict)
+                else None
+            )
+        ) or "qwen3.5:9b"
+        backend_id = getattr(config_data, "id", "ollama") if hasattr(config_data, "id") else (
+            config_data.get("id", "ollama") if isinstance(config_data, dict) else "ollama"
+        )
+        backend = cls(host=host, model_name=model_name, id=backend_id)
+        registry.register_llm(backend)
+
 
     async def chat_stream(
         self,

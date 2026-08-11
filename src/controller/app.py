@@ -22,6 +22,7 @@ from controller.messages import ClientUnregisteredMessage
 import controller.agent.session.manager as session_manager
 import controller.orchestrator as orchestrator
 import controller.providers.registry as provider_registry
+from controller.providers.loader import load_providers_from_config
 from controller.config import loader as config
 from controller.config.schemas import SystemSettings
 from controller.integrations.loader import load_integrations
@@ -32,9 +33,10 @@ from protocol.discovery import get_local_ip, start_discovery_server
 # --- Routery Endpoints HTTP/WS ---
 from controller.endpoints.interaction import router_interaction
 from controller.endpoints.clients import router_clients
-from controller.endpoints.cloud import router_cloud
+from controller.endpoints.llm_providers import router_llm_providers
 from controller.endpoints.tools import router_tools
 from controller.endpoints.system import router_system
+
 
 # Port domyślny Kontrolera
 DEFAULT_CONTROLLER_PORT = 8000
@@ -99,12 +101,14 @@ async def lifespan(app: FastAPI):
     for integration in load_integrations(settings):
         app_state.register_integration(integration)
 
-    # 3. Inicjalizacja zmysłu LLM, rejestru narzędzi Agenta oraz bufora ustawień.
+    # 3. Wczytanie statycznej konfiguracji zmysłów z plików
+    load_providers()
+
+    # 4. Inicjalizacja zmysłu LLM, rejestru narzędzi Agenta oraz bufora ustawień.
     # Nie może ona zależeć od późniejszego zdarzenia satelity (np. wake_check),
     # ponieważ czat HTTP jest równoprawnym wejściem do agenta.
-    active_llm = await provider_registry.get_active_llm()
-    if active_llm is None:
-        logging.warning("Nie znaleziono dostępnego backendu LLM; interakcje z agentem będą niedostępne.")
+    if not provider_registry.llm.is_ready:
+        logging.warning("Nie przypisano dostępnego backendu LLM; interakcje z agentem będą niedostępne.")
 
     tools_registry = ToolsRegistry()
     for integration in app_state.integration_registry.values():
@@ -113,10 +117,10 @@ async def lifespan(app: FastAPI):
     app_state.tools_registry = tools_registry
     app_state._settings_cache.update(settings.model_dump())
 
-    # 4. Uruchomienie zadania sprawdzania obecności połączeń w tle (Heartbeat)
+    # 5. Uruchomienie zadania sprawdzania obecności połączeń w tle (Heartbeat)
     heartbeat_task = asyncio.create_task(_heartbeat_loop())
 
-    # 5. Uruchomienie serwera Auto-Discovery (rozgłaszanie adresu Kontrolera w sieci lokalnej UDP)
+    # 6. Uruchomienie serwera Auto-Discovery (rozgłaszanie adresu Kontrolera w sieci lokalnej UDP)
     local_ip = get_local_ip()
     discovery_url = f"http://{local_ip}:{DEFAULT_CONTROLLER_PORT}"
     start_discovery_server(discovery_url)
@@ -149,9 +153,10 @@ def create_app() -> FastAPI:
         router_clients,
         router_tools,
         router_interaction,
-        router_cloud,
+        router_llm_providers,
         router_system,
     ]
+
 
     for router in api_routers:
         app_instance.include_router(router)

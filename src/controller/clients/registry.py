@@ -9,6 +9,14 @@ from protocol.schemas import ServiceName
 client_registry: dict[str, dict] = {}
 
 
+def touch_satellite(client_id: str) -> bool:
+    """Odświeża last_seen zadeklarowanej Satelity."""
+    if client_id in client_registry:
+        client_registry[client_id]["last_seen"] = time.time()
+        return True
+    return False
+
+
 def get_llm_clients() -> list[dict]:
     """Zwraca listę zarejestrowanych Klientów oferujących usługę LLM (ollama_worker / llm / worker)."""
     clients = []

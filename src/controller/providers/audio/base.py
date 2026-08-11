@@ -4,10 +4,11 @@ Abstrakcyjne Kontrakty (ABC) Silników Mowy (STT / TTS).
 Definiuje bazowe interfejsy dla dostawców transkrypcji mowy (STTBackend)
 oraz syntezy głosu (TTSBackend).
 """
-from abc import ABC, abstractmethod
+from abc import abstractmethod
+from controller.providers.base import BaseBackend
 
 
-class STTBackend(ABC):
+class STTBackend(BaseBackend):
     """Abstrakcyjny interfejs silnika transkrypcji mowy (STT)."""
 
     @abstractmethod
@@ -16,7 +17,7 @@ class STTBackend(ABC):
         pass
 
 
-class TTSBackend(ABC):
+class TTSBackend(BaseBackend):
     """Abstrakcyjny interfejs silnika syntezy głosu (TTS)."""
 
     @abstractmethod

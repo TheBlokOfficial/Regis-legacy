@@ -52,43 +52,26 @@ async def test_openrouter_is_available_false():
 # =============================================================================
 
 @pytest.mark.anyio
-@patch.object(OpenRouterBackend, "is_available", new_callable=AsyncMock, return_value=True)
-@patch("controller.endpoints.cloud.get_cloud_providers")
-async def test_get_active_llm_returns_openrouter(mock_get_cloud, mock_openrouter_avail):
-    from controller.config.schemas import CloudProviderConfig
-    from controller.providers.registry import get_active_llm, llm
-    llm.set_backend(None)
-    mock_get_cloud.return_value = [CloudProviderConfig(
-        id="test",
-        type="openrouter",
-        api_key="test_key",
-        model="test_model",
-        priority=50,
-    )]
-    backend = await get_active_llm()
-    assert isinstance(backend, OpenRouterBackend)
+async def test_llm_registration_and_selection():
+    from controller.providers.registry import (
+        register_llm,
+        get_all_llm_backends,
+        llm,
+        clear_audio_backends,
+    )
+    clear_audio_backends()
+    assert not llm.is_ready
 
+    mock_backend = OpenRouterBackend(api_key="test_key", model_name="test_model")
+    register_llm(mock_backend)
 
-@pytest.mark.anyio
-@patch.object(OllamaBackend, "is_available", new_callable=AsyncMock, return_value=True)
-@patch.object(OpenRouterBackend, "is_available", new_callable=AsyncMock, return_value=False)
-@patch("controller.endpoints.cloud.get_cloud_providers", return_value=[])
-async def test_get_active_llm_returns_ollama_if_available(mock_get_cloud, mock_openrouter_avail, mock_ollama_avail):
-    from controller.providers.registry import get_active_llm, llm
-    llm.set_backend(None)
-    backend = await get_active_llm()
-    assert isinstance(backend, OllamaBackend)
+    assert llm.is_ready
+    assert llm.backend is mock_backend
+    assert "openrouter" in get_all_llm_backends()
 
-
-@pytest.mark.anyio
-@patch.object(OllamaBackend, "is_available", new_callable=AsyncMock, return_value=False)
-@patch.object(OpenRouterBackend, "is_available", new_callable=AsyncMock, return_value=False)
-@patch("controller.endpoints.cloud.get_cloud_providers", return_value=[])
-async def test_get_active_llm_returns_none_if_none_available(mock_get_cloud, mock_openrouter_avail, mock_ollama_avail):
-    from controller.providers.registry import get_active_llm, llm
-    llm.set_backend(None)
-    backend = await get_active_llm()
-    assert backend is None
+    clear_audio_backends()
+    assert not llm.is_ready
+    assert llm.backend is None
 
 
 # =============================================================================
