@@ -1,6 +1,12 @@
 # Regis: Przewodnik dla Agentów AI
 
+> Ostatnia aktualizacja: 2026-08-11.
+
 Ten dokument jest przeznaczony wyłącznie dla agentów AI (LLM) pracujących nad projektem. Odpowiada na pytanie: *jak myśleć o tym projekcie*, a nie tylko co w nim jest.
+
+## O tym dokumencie
+
+`AGENTS.md` (w root repozytorium) jest krótki i operacyjny — czytasz go zawsze, na starcie i w każdej kolejnej interakcji. Ten plik, `docs/AGENT_GUIDE.md`, jest wczytywany raz na starcie sesji (patrz procedura startowa w `AGENTS.md`) i zawiera uzasadnienia, protokoły i historię decyzji, których nie trzeba trzymać "pod ręką" w każdej turze. Jeśli dodajesz tu nową treść, zapytaj: czy to wiedza potrzebna raz na sesję, czy w każdej turze? To drugie należy do `AGENTS.md`, nie tutaj.
 
 ---
 
@@ -88,9 +94,11 @@ Każdy agent ma pełny odczyt do wszystkich dokumentów. Prawa zapisu są nastę
 
 ---
 
-## Decyzje Już Podjęte (Nie Otwieraj Ponownie)
+## Decyzje Rozstrzygnięte (Traktuj Jako Domyślne)
 
 Poniższe decyzje były świadomie przemyślane i rozstrzygnięte. Propozycja ich zmiany bez wyraźnej prośby użytkownika jest błędem.
+
+> **Polityka od 2026-08-11:** ta tabela jest wczytywana w całości do kontekstu na starcie *każdej* sesji i rośnie z każdą decyzją architektoniczną bez ograniczeń — to realny i rosnący koszt tokenów. **Nowe decyzje architektoniczne zapisuj jako osobne pliki ADR w `docs/adr/NNNN-krotki-tytul.md`** (jedna decyzja = jeden plik, format: Kontekst / Decyzja / Konsekwencje / Data). W tej tabeli zostawiaj wtedy wyłącznie jednowierszowy wpis-indeks z linkiem do pliku ADR, nie pełne uzasadnienie. Istniejące wiersze poniżej zostają tu, dopóki nie zostaną świadomie zmigrowane na wyraźne polecenie użytkownika — nie migruj ich "przy okazji" (zasada 1 z `AGENTS.md` dotyczy też tego dokumentu).
 
 | Decyzja | Powód |
 |---|---|
@@ -130,15 +138,21 @@ Poniższe decyzje były świadomie przemyślane i rozstrzygnięte. Propozycja ic
 
 ## Obowiązek Wcześniejszej Analizy (Chain of Thought przed Działaniem)
 
+*(Ta sekcja dotyczy Ciebie — agenta kodującego pracującego w tym repozytorium. Nie myl jej z sekcją "Architektura LLM" poniżej, która opisuje modele używane w runtime samego produktu Regis. To dwie zupełnie osobne warstwy: Ty piszesz kod; tier `butler`/`regis` to coś, co ten kod uruchamia.)*
+
 Modele autoregresywne podejmują decyzje na podstawie tokenów wygenerowanych wcześniej w sekwencji. Aby uniknąć wyrywności, pochopnych edycji i pomijania niuansów, agent musi upewnić się, że każda akcja jest poprzedzona procesem myślowym.
 
-**Zasada:** 
-- Jeśli model wykorzystuje **natywny mechanizm extended thinking / reasoning** (np. natywny blok przemyśleń w API), wymóg ten jest realizowany automatycznie przez silnik modelu.
-- W przypadku modeli **bez natywnego CoT lub z wyłączonym myśleniem** (np. modele typu Flash, standardowe czatowe), agent ma OBOWIĄZEK wygenerować najpierw w tekście odpowiedzi odrębne akapity analizy ("scratchpad"), opisujące kontekst, ograniczenia i planowane kroki, zanim przejdzie do modyfikacji plików lub propozycji konkretnych akcji.
+**Zasada:**
+- Jeśli model wykorzystuje **natywny mechanizm extended thinking / reasoning** (np. natywny blok przemyśleń w API, `thinking_level` w Gemini 3.x), wymóg ten jest realizowany automatycznie przez silnik modelu. Nie dubluj go ręcznym promptem "pomyśl krok po kroku, opisz swój plan" — to marnuje tokeny i, jak pokazują testy dostawców i niezależne badania nad zjawiskiem "overthinking", może pogorszyć jakość odpowiedzi zamiast ją poprawić.
+- W przypadku modeli **bez natywnego CoT lub z wyłączonym myśleniem** (klasyczne modele czatowe bez trybu reasoning), agent ma OBOWIĄZEK wygenerować najpierw w tekście odpowiedzi odrębne akapity analizy ("scratchpad"), opisujące kontekst, ograniczenia i planowane kroki, zanim przejdzie do modyfikacji plików lub propozycji konkretnych akcji.
+
+> **Ważna korekta (sierpień 2026):** ta sekcja została pierwotnie napisana przy założeniu, że "modele typu Flash" nie mają natywnego CoT. To założenie jest już nieaktualne. Gemini 3.x — w tym Gemini 3.6 Flash, którego używacie w Antigravity — to modele z natywnym trybem rozumowania, z konfigurowalnym poziomem myślenia (minimal/low/medium/high, domyślnie włączonym i z zachowywanym "thought preservation" między turami). Zanim wymusisz na sobie ręczny scratchpad zgodnie z powyższą zasadą, sprawdź, czy narzędzie (Antigravity) już korzysta z natywnego myślenia modelu — jeśli tak, ręczny wymóg jest zbędny i kontrproduktywny. Zostaw wymuszony, rozbudowany scratchpad dla modeli faktycznie pozbawionych reasoning (np. bardzo lekkich modeli parsujących typu `tier_butler`).
 
 ---
 
 ## Architektura LLM — Co Musisz Rozumieć
+
+*(Ta sekcja opisuje modele działające w runtime produktu Regis — nie modele, którymi Ty, agent kodujący w Antigravity, jesteś napędzany. Zobacz zastrzeżenie w sekcji powyżej.)*
 
 Ten projekt ma dwa fundamentalnie różne tryby pracy modelu. **Tier to pojęcie promptu i zdolności modelu — nie mechanizm routingu.** Kontroler wybiera providera na podstawie dostępności (patrz §5 MANIFEST.md), nie na podstawie tieru. Pomylenie trybów pracy przy modyfikacji promptów jest krytycznym błędem.
 
@@ -154,16 +168,32 @@ Ten projekt ma dwa fundamentalnie różne tryby pracy modelu. **Tier to pojęcie
 - Obowiązkowo używa tagu `<thought>...</thought>` do wewnętrznego rozumowania przed każdą akcją.
 - Pętla trwa dopóki model wywołuje narzędzia. Gdy nie wywołuje — to jest finalna odpowiedź.
 - Model widzi historię jako serie tur (user + assistant), nie jako surowy ślad rozumowania.
-- **Nie skracaj promptu** — modele ReAct potrzebują szczegółowych instrukcji, checklist i przykładów Few-Shot.
+- **Nie skracaj promptu** — modele ReAct potrzebują szczegółowych instrukcji, checklist i przykładów Few-Shot. (To odnosi się do modeli OSS bez natywnego reasoning, dobieranych przez OpenRouter — nie utożsamiaj tej zasady z modelami, które piszą ten prompt, patrz sekcja CoT wyżej i punkt o modelach reasoning w sekcji promptowej poniżej.)
 
 ---
 
 ## Konwencje Kodu i Styl
 
 - **Język:** Polski dla wszystkich stringów widocznych dla użytkownika, komentarzy w kodzie i promptów systemowych. Angielski jest akceptowalny dla nazw zmiennych, funkcji i klas.
-- **CLI:** Biblioteka `rich`. Stosuj `[dim]` dla tekstów pomocniczych, `[bold white]` dla nagłówków. Unikaj `cyan`, `yellow`, `magenta` jako kolorów dekoracyjnych. Czerwony dla błędów, zielony dla sukcesów — i nic więcej.
+- **CLI (Zasady UX i biblioteka `rich`):**
+  - Stosuj **minimalizm barwny**: czysta biel (`[bold white]`) dla nagłówków, szarość (`[dim]`) dla elementów tła (logi, długie dumpy JSON).
+  - Unikaj jaskrawych barw (`cyan`, `yellow`, `magenta`) jako ozdobników. Rezerwuj wyraziste kolory (`red`, `green`) wyłącznie do informowania o błędach i sukcesach.
+  - Zamiast masywnych paneli z obramowaniami (`Panel`), używaj lżejszej struktury: pogrubionych tytułów oddzielonych delikatnymi liniami poziomymi (`Rule(style="dim")`).
+  - **Prompting:** Przy korzystaniu z bibliotek wyboru (np. `questionary`) aplikuj własny, wyciszony motyw stylów (np. `fg:ansigray`), aby pozbyć się "krzykliwych", domyślnych highlightów.
+  - **Emotikony:** Używaj ich oszczędnie, tylko do kierowania wzrokiem (np. krzyżyk oznaczający błąd, ptaszek oznaczający sukces). Nie dodawaj ich do każdej opcji menu. Interfejs ma być stonowany i ascetyczny.
 - **PowerShell:** Używaj `;` zamiast `&&` do łączenia komend. System to Windows.
 - **Testy:** `pytest`. Uruchamiaj przed zgłoszeniem zakończenia zadania.
+
+---
+
+## Zasady Inżynieryjne (Zwalczanie "Lenistwa AI")
+
+Aby zapobiec powierzchownym refaktoryzacjom i zjawisku over-engineeringu, agenty muszą bezwzględnie stosować poniższe zasady przy modyfikacji logiki:
+
+1. **KISS (Keep It Simple, Stupid):** Kod ma być tak prosty, jak to tylko możliwe. Jeśli masz do wyboru skomplikowany wzorzec projektowy a prostą funkcję z kilkoma warunkami, wybierz prostą funkcję.
+2. **YAGNI (You Aren't Gonna Need It):** Nie twórz klas, interfejsów ani metod "na przyszłość". Koduj tylko to, co jest absolutnie niezbędne w bieżącym zadaniu (zgodnie z zasadą "Nie dodawaj funkcji, o które nie proszono" z MANIFEST.md).
+3. **DRY (Don't Repeat Yourself):** Jeśli widzisz powtarzający się blok kodu, wydziel go do osobnej, mniejszej funkcji.
+4. **SOLID (Uwaga — stosuj ostrożnie!):** Zasady SOLID są zachowane w głównych warstwach systemu (np. abstrakcje providerów LLM/STT), ale **nie** należy ich nadużywać w codziennym kodzie. Używanie SOLID "na siłę" często kończy się pisaniem w Pythonie kodu przypominającego archaiczną Javę (nieuzasadnione interfejsy i klasy fabrykujące). Zachowaj zdrowy rozsądek i traktuj KISS z większym priorytetem.
 
 ---
 
@@ -192,3 +222,24 @@ Gdy modyfikujesz pliki w `data/prompts/`:
 - **Nie używaj negatywnego framingu.** Zamiast "Nie wywołuj narzędzi bez myśli" napisz "Zawsze zacznij od bloku `<thought>` przed każdą akcją".
 - **Few-Shot przykłady muszą być kontrastujące.** Jeden przykład pokazujący użycie narzędzia, jeden przykład pokazujący odpowiedź BEZ narzędzia. Model musi widzieć oba wzorce.
 - **Testuj na modelu docelowym.** Prompt zoptymalizowany pod duży model chmurowy często zepsuje lekki parser na RPi5 i odwrotnie.
+- **Rozróżniaj modele reasoning od non-reasoning.** Modele z natywnym myśleniem (Gemini 3.x, Claude z extended thinking) reagują gorzej na rozbudowany, "naganiający" prompt engineering zaprojektowany pod starsze modele — bywają skłonne nadmiernie analizować proste polecenia zamiast po prostu je wykonać. Dla takich modeli formułuj instrukcje zwięźle i wprost; rozbudowane checklisty i wymuszony CoT rezerwuj dla modeli faktycznie ich pozbawionych (np. `tier_butler`).
+
+---
+
+## Zgodność z Narzędziami (Antigravity / Gemini / Claude Code)
+
+- **Antigravity** czyta `AGENTS.md` jako plik główny (priorytet: `AGENTS.md` → `~/.gemini/GEMINI.md` → wartości domyślne narzędzia). Wasza struktura `.agents/skills/`, `.agents/HANDOFF.md`, `.agents/TASKS.md` jest zgodna z konwencją tego narzędzia — nie wymaga zmian.
+- **Konflikt ścieżek Antigravity ↔ Gemini CLI:** jeśli na tej samej maszynie używacie obu narzędzi, obie piszą do tej samej globalnej ścieżki `~/.gemini/GEMINI.md`, co może powodować przeciekanie reguł między sesjami (znany, śledzony problem po stronie Google). Trzymajcie reguły współdzielone w `AGENTS.md`, nie w globalnym `GEMINI.md`.
+- **Claude Code** (jeśli kiedyś dołączy do zestawu narzędzi) czyta `CLAUDE.md`, nie `AGENTS.md`. Najprostsze rozwiązanie: plik `CLAUDE.md` w rocie, którego cała treść to jedna linia — `@AGENTS.md` — co powoduje, że Claude Code dziedziczy te same reguły bez duplikacji treści.
+
+---
+
+## Źródła zewnętrzne (do okresowego przeglądu)
+
+Poniższe fakty o narzędziach/modelach zmieniają się szybciej niż reszta tego dokumentu — warto zweryfikować przy kolejnym większym audycie promptów:
+
+- Dokumentacja Gemini API — prompting strategies: https://ai.google.dev/gemini-api/docs/prompting-strategies
+- Antigravity — konfiguracja i hierarchia plików: dokumentacja produktowa antigravity.google
+- Anthropic — Effective context engineering for AI agents: https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents
+- Anthropic — Effective harnesses for long-running agents (wzorzec `claude-progress.txt`): https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
+- Specyfikacja AGENTS.md (Agentic AI Foundation): https://agents.md
